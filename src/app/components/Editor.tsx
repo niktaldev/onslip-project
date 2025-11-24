@@ -13,6 +13,7 @@ import TableRect from "./TableRect";
 import DrawSquareButton from "./DrawSquareButton";
 import DrawLineButton from "./DrawLineButton";
 import EditableLine from "./EditableLine";
+import ExportImportButtons from "./ExportImportButtons";
 
 export default function Editor() {
   // Ref to the container div to measure size, for dynamic Stage sizing
@@ -420,6 +421,19 @@ export default function Editor() {
     }
   };
 
+  // Handle import from ExportImportButtons component
+  const handleImport = (canvasState: { tables: Table[]; lines: LineType[] }) => {
+    setTables(canvasState.tables);
+    setLines(canvasState.lines);
+    setSelectedId(null);
+
+    // Clear drawing modes
+    setTableDrawMode(false);
+    setLineDrawMode(false);
+    isDrawingRef.current = false;
+    drawStartRef.current = null;
+  };
+
   return (
     <div className="p-4">
       <div className="mb-2 flex items-center gap-3">
@@ -431,6 +445,12 @@ export default function Editor() {
         <span className="ml-3 text-sm text-gray-600">
           Selected: {selectedId ?? "—"}
         </span>
+
+        <ExportImportButtons
+          tables={tables}
+          lines={lines}
+          onImport={handleImport}
+        />
       </div>
 
       <div
