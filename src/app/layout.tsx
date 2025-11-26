@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { API, nodeRequestHandler } from "@onslip/onslip-360-node-api";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -11,6 +12,8 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
+
+API.initialize(nodeRequestHandler({ userAgent: `MyAwesomeClient/1.0.0` }));
 
 export const metadata: Metadata = {
   title: "Create Next App",
