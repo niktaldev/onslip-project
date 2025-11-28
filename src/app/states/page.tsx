@@ -1,7 +1,7 @@
-import { addStates } from "../lib/states";
+import { createTableStates } from "../lib/states";
 
 export default async function PageState() {
-  const test = await addStates();
+  const test = await createTableStates();
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen">
