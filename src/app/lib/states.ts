@@ -191,3 +191,26 @@ export async function getTableStates(): Promise<string[]> {
 
   return stateNames;
 }
+
+// This function creates the resource for a given order which holds the current state
+export async function createStateResourceForOrder(orderId: number) {
+  const order = await api.getOrder(orderId);
+  console.log("Order Info:", order);
+
+  if (!order) {
+    console.log("Order was not found.");
+    return;
+  }
+
+  const resource = await api.addResource({
+    location: order.location,
+    name: `order-${orderId}-state:null`,
+  });
+
+  const updateOrder = await api.updateOrder(orderId, {
+    resources: [resource.id],
+  });
+
+  console.log("Created State Resource for Order:", resource);
+  console.log("Updated Order with Resource:", updateOrder);
+}
