@@ -3,9 +3,10 @@
 import {
   createOrder,
   createTableStates,
-  deleteTableResources,
+  deleteOrder,
   getLocations,
   getTableStates,
+  listOrders,
   setNextOrderState,
   setPreviousOrderState,
 } from "../lib/states";
@@ -16,7 +17,7 @@ export default function PageState() {
   }
 
   async function handleDelete() {
-    await deleteTableResources();
+    await deleteOrder(5);
   }
 
   async function handleGetStates() {
@@ -27,8 +28,11 @@ export default function PageState() {
     await getLocations();
   }
 
+  async function handleGetOrders() {
+    await listOrders();
+  }
   async function handleCreateOrder() {
-    await createOrder("Test Order 2", 85);
+    await createOrder("Test Order", 85);
   }
 
   async function handleNextState() {
@@ -43,11 +47,13 @@ export default function PageState() {
     <div className="flex flex-col items-center justify-center min-h-screen">
       <button onClick={handleClick}>Create Table States</button>
       <h1>---------------------------------</h1>
-      <button onClick={handleDelete}>Delete all Table Resources</button>
+      <button onClick={handleDelete}>Delete Order & Related Resources</button>
       <h1>---------------------------------</h1>
       <button onClick={handleGetStates}>Get Table States</button>
       <h1>---------------------------------</h1>
       <button onClick={handleGetLocations}>Get Locations Test</button>
+      <h1>---------------------------------</h1>
+      <button onClick={handleGetOrders}>Get Orders Test</button>
       <h1>---------------------------------</h1>
       <button onClick={handleCreateOrder}>Create Order Test</button>
       <h1>---------------------------------</h1>

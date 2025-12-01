@@ -158,15 +158,6 @@ async function addResourceStates(newStates: string[]) {
   console.log("Created Resource:", newResource);
 }
 
-export async function deleteTableResources() {
-  const resources = await api.listResources();
-
-  for (const resource of resources) {
-    await api.removeResource(resource.id);
-    console.log(`Deleted Resource: ${resource.name}`);
-  }
-}
-
 // This function fetches the possible table states from the server
 export async function getTableStates(): Promise<string[]> {
   const resources = await api.listResources("name=table-states-resource");
@@ -213,9 +204,46 @@ export async function createOrder(
   return order.id;
 }
 
+export async function listOrders() {
+  const orders = await api.listOrders();
+
+  // Filter out orders where the 'deleted' field is defined (not undefined)
+  const activeOrders = orders.filter((order) => order.deleted === undefined);
+
+  console.log("Active Orders:", activeOrders);
+
+  // If you want to process resources for each active order:
+  // activeOrders.forEach((order) => {
+  //   order.resources?.forEach(async (resourceId) => {
+  //     const resource = await api.getResource(resourceId);
+  //     console.log(`Resource in order ${order.id}:`, resource);
+  //   });
+  // });
+}
+
+// Deletes an order and its associated resources
 export async function deleteOrder(orderId: number) {
-  const deletedOrder = await api.removeOrder(orderId);
-  console.log("Order removed: ", deletedOrder);
+  const order = await api.getOrder(orderId);
+
+  if (!order) {
+    console.log(`Order with ID ${orderId} does not exist.`);
+    return;
+  }
+
+  await api.removeOrder(orderId);
+  console.log(`Deleted Order with ID: ${orderId}`);
+
+  if (order.resources) {
+    for (const resourceId of order.resources) {
+      await deleteTableResource(resourceId);
+      console.log(`Deleted Resource with ID: ${resourceId}`);
+    }
+  }
+}
+
+// Deletes the resources of the given id
+async function deleteTableResource(resourceId: number) {
+  await api.removeResource(resourceId);
 }
 
 // This function creates the resource for a given order which holds the current state
