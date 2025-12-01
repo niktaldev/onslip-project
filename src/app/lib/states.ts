@@ -96,6 +96,7 @@ export async function createConfigResource() {
   console.log("Current resources: ", await api.listResources());
 }
 
+// Helper to add or update the resource that holds the table states
 async function addResourceStates(newStates: string[]) {
   const targetResourceName = "table-states-resource";
   const resources = await api.listResources();
@@ -110,11 +111,24 @@ async function addResourceStates(newStates: string[]) {
     `label-category:${labelCategories[0].id}`
   );
 
+  // Check for labels that don't exist in the current states list and delete them
+  for (const label of labels) {
+    if (!newStates.includes(label.name)) {
+      await api.removeLabel(label.id);
+      console.log(`Deleted obsolete label: ${label.name}`);
+    }
+  }
+
+  // Re-fetch labels after deletion to get the current list
+  const currentLabels = await api.listLabels(
+    `label-category:${labelCategories[0].id}`
+  );
+
   // Try to update existing resource
   const existing = resources.find((r) => r.name === targetResourceName);
   if (existing) {
     const updatedResource = await api.updateResource(existing.id, {
-      labels: labels.map((label) => label.id),
+      labels: currentLabels.map((label) => label.id),
     });
     console.log("Updated Resource:", updatedResource);
     return;
@@ -139,7 +153,7 @@ async function addResourceStates(newStates: string[]) {
   const newResource = await api.addResource({
     location: locationId,
     name: targetResourceName,
-    labels: labels.map((label) => label.id),
+    labels: currentLabels.map((label) => label.id),
   });
   console.log("Created Resource:", newResource);
 }
@@ -197,6 +211,11 @@ export async function createOrder(
   await createStateResourceForOrder(order.id);
 
   return order.id;
+}
+
+export async function deleteOrder(orderId: number) {
+  const deletedOrder = await api.removeOrder(orderId);
+  console.log("Order removed: ", deletedOrder);
 }
 
 // This function creates the resource for a given order which holds the current state

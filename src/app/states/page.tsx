@@ -32,18 +32,18 @@ export default function PageState() {
   }
 
   async function handleNextState() {
-    await setNextOrderState(3);
+    await setNextOrderState(4);
   }
 
   async function handlePrevState() {
-    await setPreviousOrderState(3);
+    await setPreviousOrderState(4);
   }
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen">
       <button onClick={handleClick}>Create Table States</button>
       <h1>---------------------------------</h1>
-      <button onClick={handleDelete}>Delete resources</button>
+      <button onClick={handleDelete}>Delete all Table Resources</button>
       <h1>---------------------------------</h1>
       <button onClick={handleGetStates}>Get Table States</button>
       <h1>---------------------------------</h1>
