@@ -1,9 +1,3 @@
-/* TODO:
- * Implement a state list for the tables
- * Create a dummy
- * addStates() Push the states to the server
- * getStates() Fetch the states from the server
- */
 "use server";
 
 import { API, nodeRequestHandler } from "@onslip/onslip-360-node-api";
@@ -168,20 +162,18 @@ export async function deleteTableResources() {
   }
 }
 
+// This function fetches the possible table states from the server
 export async function getTableStates(): Promise<string[]> {
-  const resources = await api.listResources();
-  const targetResource = resources.find(
-    (res) => res.name === "table-states-resource"
-  );
+  const resources = await api.listResources("name=table-states-resource");
 
-  if (!targetResource || !targetResource.labels) {
+  if (!resources[0] || !resources[0].labels) {
     console.error("Table states resource not found.");
     return [];
   }
 
   // Fetch label names for the resource's labels
   const stateNames = await Promise.all(
-    targetResource.labels.map(async (labelId) => {
+    resources[0].labels.map(async (labelId) => {
       const label = await api.getLabel(labelId);
       return label.name;
     })
@@ -190,6 +182,23 @@ export async function getTableStates(): Promise<string[]> {
   console.log("Table States:", stateNames);
 
   return stateNames;
+}
+
+// Create an order and its associated state resource, and returns the order ID
+export async function createOrder(
+  name: string,
+  locationId: number
+): Promise<number> {
+  const order = await api.addOrder({
+    name: name,
+    location: locationId,
+    state: "active",
+  });
+
+  console.log("Created Order:", order);
+  await createStateResourceForOrder(order.id);
+
+  return order.id;
 }
 
 // This function creates the resource for a given order which holds the current state
@@ -213,4 +222,82 @@ export async function createStateResourceForOrder(orderId: number) {
 
   console.log("Created State Resource for Order:", resource);
   console.log("Updated Order with Resource:", updateOrder);
+}
+
+// Helper to update the state of a given order by modifying its state resource
+async function updateStateResource(
+  orderId: number,
+  resourceId: number,
+  newState: string
+) {
+  const resource = await api.getResource(resourceId);
+
+  if (!resource) {
+    console.error("Resource not found.");
+    return;
+  }
+
+  if (!resource.name.startsWith(`order-${orderId}-state`)) {
+    console.error("Resource does not belong to the specified order.");
+  }
+
+  const updatedResource = await api.updateResource(resourceId, {
+    name: `order-${orderId}-state:${newState}`,
+  });
+
+  console.log("Updated State Resource:", updatedResource);
+}
+
+// Fetches the current state of the order and sets it to the next state in the list
+export async function setNextOrderState(orderId: number) {
+  const order = await api.getOrder(orderId);
+
+  if (!order || !order.resources || order.resources.length === 0) {
+    console.error("The order does not exist or does not have a state resource");
+    return;
+  }
+
+  const currentStates = await getTableStates();
+
+  if (currentStates.length === 0) {
+    console.error("No table states available to set.");
+    return;
+  }
+
+  for (const resourceId of order.resources) {
+    const resource = await api.getResource(resourceId);
+    if (resource.name.startsWith(`order-${orderId}-state:`)) {
+      // Extract the current state from the resource name
+      const currentState = resource.name.split(":")[1];
+
+      let nextState: string;
+      if (currentState === "null") {
+        nextState = currentStates[0];
+      } else {
+        const currentIndex = currentStates.indexOf(currentState);
+
+        if (currentIndex === -1) {
+          console.error(`Current state "${currentState}" not found`);
+          continue;
+        }
+
+        // If at last state, jump to first; otherwise, go to next
+        nextState =
+          currentIndex === currentStates.length - 1
+            ? currentStates[0]
+            : currentStates[currentIndex + 1];
+      }
+
+      await updateStateResource(orderId, resourceId, nextState);
+      console.log(
+        `Order ${orderId} state changed from "${currentState}" to "${nextState}"`
+      );
+    }
+  }
+}
+
+export async function getLocations() {
+  const locations = await api.listLocations();
+  console.log("Locations:", locations);
+  return locations;
 }
