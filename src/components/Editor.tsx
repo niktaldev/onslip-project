@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Stage, Layer, Rect, Line, Circle } from "react-konva";
+import { Stage, Layer, Rect, Line, Circle, Image } from "react-konva";
+import { useImage } from "react-konva-utils";
 import Konva from "konva";
 import type { Table } from "../types/table";
 import { createTable } from "../types/table";
@@ -24,6 +25,9 @@ import {
 } from "../app/lib/states";
 
 export default function Editor() {
+  // Load the background SVG image
+  const [backgroundImage] = useImage("/demo-floorplan.svg");
+
   // Ref to the container div to measure size, for dynamic Stage sizing
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -32,6 +36,9 @@ export default function Editor() {
 
   // Sets the size of the Stage based on container size
   const [stageSize, setStageSize] = useState({ width: 300, height: 150 });
+
+  // Stage position for panning
+  const [stagePos, setStagePos] = useState({ x: 0, y: 0 });
 
   // Holds the list of tables in the editor
   const [tables, setTables] = useState<Table[]>(() => [
@@ -85,6 +92,21 @@ export default function Editor() {
 
   // Snap threshold in pixels
   const SNAP_THRESHOLD = 15;
+
+  // Helper function to get pointer position relative to the stage content
+  // (accounting for stage position/transform)
+  const getRelativePointerPosition = () => {
+    const stage = stageRef.current;
+    if (!stage) return null;
+
+    const pointerPos = stage.getPointerPosition();
+    if (!pointerPos) return null;
+
+    // Transform pointer position to stage's local coordinates
+    const transform = stage.getAbsoluteTransform().copy();
+    transform.invert();
+    return transform.point(pointerPos);
+  };
 
   // Update and observe parent size. Works in modern browsers; falls back to window resize.
   useEffect(() => {
@@ -241,10 +263,12 @@ export default function Editor() {
 
   // Handlers for stage mouse events to implement drawing new tables and lines
   const handleStageMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
+    const clickedOnEmpty = e.target === e.target.getStage();
+
     // Check if we're in a drawing mode
     if (!tableDrawMode && !lineDrawMode) {
       // If clicking on a shape that's not the stage, don't deselect
-      if (e.target !== e.target.getStage()) {
+      if (!clickedOnEmpty) {
         return;
       }
       // Deselect when clicking on empty canvas
@@ -265,7 +289,7 @@ export default function Editor() {
       // For line mode, allow clicking on lines and snap indicators to start drawing
     }
 
-    const pointer = stageRef.current?.getPointerPosition?.();
+    const pointer = getRelativePointerPosition();
     if (!pointer) return;
 
     isDrawingRef.current = true;
@@ -318,7 +342,7 @@ export default function Editor() {
   const handleStageMouseMove = () => {
     if ((!tableDrawMode && !lineDrawMode) || !isDrawingRef.current) return;
 
-    const pointer = stageRef.current?.getPointerPosition?.();
+    const pointer = getRelativePointerPosition();
     if (!pointer || !drawStartRef.current) return;
 
     if (tableDrawMode) {
@@ -627,11 +651,44 @@ export default function Editor() {
           ref={stageRef}
           width={stageSize.width}
           height={stageSize.height}
+          x={stagePos.x}
+          y={stagePos.y}
+          draggable={!tableDrawMode && !lineDrawMode}
+          onDragMove={(e) => {
+            // Prevent stage from moving when dragging shapes
+            const isDraggingShape = e.target !== e.target.getStage();
+            if (isDraggingShape) {
+              // Reset stage position if a shape triggered the drag
+              const stage = e.target.getStage();
+              if (stage) {
+                stage.position(stagePos);
+              }
+            }
+          }}
+          onDragEnd={(e) => {
+            // Only update position if the stage itself was dragged
+            if (e.target === e.target.getStage()) {
+              setStagePos({ x: e.target.x(), y: e.target.y() });
+            }
+          }}
           style={{ display: "block" }}
           onMouseDown={handleStageMouseDown}
           onMouseMove={handleStageMouseMove}
           onMouseUp={handleStageMouseUp}
         >
+          {/* Background Layer */}
+          <Layer listening={false}>
+            {backgroundImage && (
+              <Image
+                image={backgroundImage}
+                alt="image not found"
+                width={backgroundImage.width}
+                height={backgroundImage.height}
+              />
+            )}
+          </Layer>
+
+          {/* Main content Layer */}
           <Layer ref={layerRef}>
             {tables.map((table) => (
               <TableRect
