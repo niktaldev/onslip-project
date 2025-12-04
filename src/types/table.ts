@@ -11,6 +11,7 @@ export interface Table {
   color?: string;
   orderId?: number; // Onslip 360 order ID
   currentState?: string; // Current state from the API (e.g., "1:ready")
+  locked?: boolean; // Whether the table is locked from transformations
 }
 
 export function createTable(opts?: Partial<Table>): Table {

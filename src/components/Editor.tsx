@@ -1,7 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Stage, Layer, Rect, Line, Circle, Image } from "react-konva";
+import {
+  Stage,
+  Layer,
+  Rect,
+  Line,
+  Circle,
+  Image,
+  Transformer,
+} from "react-konva";
 import { useImage } from "react-konva-utils";
 import Konva from "konva";
 import type { Table } from "../types/table";
@@ -39,6 +47,9 @@ export default function Editor() {
 
   // Stage position for panning
   const [stagePos, setStagePos] = useState({ x: 0, y: 0 });
+
+  // Stage scale for zooming
+  const [stageScale, setStageScale] = useState(1);
 
   // Holds the list of tables in the editor
   const [tables, setTables] = useState<Table[]>(() => [
@@ -86,6 +97,10 @@ export default function Editor() {
   const previewRectRef = useRef<Konva.Rect | null>(null);
   const previewLineRef = useRef<Konva.Line | null>(null);
 
+  // Transformer ref for table resize/rotate
+  const transformerRef = useRef<Konva.Transformer | null>(null);
+  const tableRefs = useRef<Map<string, Konva.Group>>(new Map());
+
   // Snap indicators for line endpoints
   const snapIndicatorStartRef = useRef<Konva.Circle | null>(null);
   const snapIndicatorEndRef = useRef<Konva.Circle | null>(null);
@@ -106,6 +121,47 @@ export default function Editor() {
     const transform = stage.getAbsoluteTransform().copy();
     transform.invert();
     return transform.point(pointerPos);
+  };
+
+  // Handle mouse wheel for zooming
+  const handleWheel = (e: Konva.KonvaEventObject<WheelEvent>) => {
+    e.evt.preventDefault();
+
+    const stage = stageRef.current;
+    if (!stage) return;
+
+    const oldScale = stage.scaleX();
+    const pointer = stage.getPointerPosition();
+    if (!pointer) return;
+
+    const mousePointTo = {
+      x: (pointer.x - stage.x()) / oldScale,
+      y: (pointer.y - stage.y()) / oldScale,
+    };
+
+    // Determine zoom direction
+    let direction = e.evt.deltaY > 0 ? -1 : 1;
+
+    // When zooming on trackpad, e.evt.ctrlKey is true
+    // In that case, reverse direction for more natural feel
+    if (e.evt.ctrlKey) {
+      direction = -direction;
+    }
+
+    const scaleBy = 1.05;
+    const newScale = direction > 0 ? oldScale * scaleBy : oldScale / scaleBy;
+
+    // Limit zoom range
+    const clampedScale = Math.max(0.1, Math.min(5, newScale));
+
+    setStageScale(clampedScale);
+
+    const newPos = {
+      x: pointer.x - mousePointTo.x * clampedScale,
+      y: pointer.y - mousePointTo.y * clampedScale,
+    };
+
+    setStagePos(newPos);
   };
 
   // Update and observe parent size. Works in modern browsers; falls back to window resize.
@@ -145,6 +201,38 @@ export default function Editor() {
   const handleDragEnd = (id: string, x: number, y: number) => {
     setTables((prevTables) =>
       prevTables.map((t) => (t.id === id ? { ...t, x, y } : t))
+    );
+  };
+
+  // Handle transform end (resize/rotate)
+  const handleTransformEnd = (id: string) => {
+    const node = tableRefs.current.get(id);
+    if (!node) return;
+
+    const scaleX = node.scaleX();
+    const scaleY = node.scaleY();
+
+    // Calculate new dimensions
+    const newWidth = Math.max(30, node.width() * scaleX);
+    const newHeight = Math.max(30, node.height() * scaleY);
+
+    // Reset scale to 1
+    node.scaleX(1);
+    node.scaleY(1);
+
+    setTables((prevTables) =>
+      prevTables.map((t) =>
+        t.id === id
+          ? {
+              ...t,
+              x: node.x(),
+              y: node.y(),
+              width: newWidth,
+              height: newHeight,
+              rotation: node.rotation(),
+            }
+          : t
+      )
     );
   };
 
@@ -570,6 +658,17 @@ export default function Editor() {
     }
   };
 
+  // Toggle lock state for selected table
+  const handleToggleLock = () => {
+    if (!selectedId) return;
+
+    setTables((prevTables) =>
+      prevTables.map((t) =>
+        t.id === selectedId ? { ...t, locked: !t.locked } : t
+      )
+    );
+  };
+
   // Refresh a table's state from the server
   const refreshTableState = async (tableId: string) => {
     const table = tables.find((t) => t.id === tableId);
@@ -601,6 +700,22 @@ export default function Editor() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTable?.id, locationId]);
+
+  // Attach transformer to selected table (only if not locked)
+  useEffect(() => {
+    if (transformerRef.current) {
+      const table = selectedId ? tables.find((t) => t.id === selectedId) : null;
+      const selectedNode = selectedId
+        ? tableRefs.current.get(selectedId)
+        : null;
+
+      if (selectedNode && table && !table.locked) {
+        transformerRef.current.nodes([selectedNode]);
+      } else {
+        transformerRef.current.nodes([]);
+      }
+    }
+  }, [selectedId, tables]);
 
   return (
     <div className="p-4">
@@ -653,7 +768,10 @@ export default function Editor() {
           height={stageSize.height}
           x={stagePos.x}
           y={stagePos.y}
+          scaleX={stageScale}
+          scaleY={stageScale}
           draggable={!tableDrawMode && !lineDrawMode}
+          onWheel={handleWheel}
           onDragMove={(e) => {
             // Prevent stage from moving when dragging shapes
             const isDraggingShape = e.target !== e.target.getStage();
@@ -697,8 +815,31 @@ export default function Editor() {
                 isSelected={selectedId === table.id}
                 onSelect={(id) => setSelectedId(id)}
                 onDragEnd={handleDragEnd}
+                onTransformEnd={handleTransformEnd}
+                shapeRef={(node) => {
+                  if (node) {
+                    tableRefs.current.set(table.id, node);
+                  } else {
+                    tableRefs.current.delete(table.id);
+                  }
+                }}
               />
             ))}
+
+            {/* Transformer for selected table */}
+            <Transformer
+              ref={transformerRef}
+              boundBoxFunc={(oldBox, newBox) => {
+                // Limit resize to minimum size
+                if (
+                  Math.abs(newBox.width) < 30 ||
+                  Math.abs(newBox.height) < 30
+                ) {
+                  return oldBox;
+                }
+                return newBox;
+              }}
+            />
 
             {/* Render completed lines with selection and transformation */}
             {lines.map((line) => (
@@ -784,6 +925,8 @@ export default function Editor() {
           onPreviousState={() => handleStateChange("prev")}
           onNextState={() => handleStateChange("next")}
           isLoading={isStateLoading}
+          isLocked={selectedTable.locked}
+          onToggleLock={handleToggleLock}
         />
       )}
     </div>

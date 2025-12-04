@@ -1,6 +1,7 @@
 "use client";
 
 import { Group, Rect, Text } from "react-konva";
+import Konva from "konva";
 import type { Table } from "../types/table";
 
 type Props = {
@@ -8,6 +9,8 @@ type Props = {
   isSelected?: boolean;
   onSelect?: (id: string) => void;
   onDragEnd?: (id: string, x: number, y: number) => void;
+  onTransformEnd?: (id: string) => void;
+  shapeRef?: (node: Konva.Group | null) => void;
 };
 
 // Map state names to colors
@@ -37,6 +40,8 @@ export default function TableRect({
   isSelected,
   onSelect,
   onDragEnd,
+  onTransformEnd,
+  shapeRef,
 }: Props) {
   const stroke = isSelected ? "#2563eb" : "#9ca3af";
   const strokeWidth = isSelected ? 3 : 1;
@@ -50,10 +55,15 @@ export default function TableRect({
   return (
     <Group
       name="table"
+      ref={shapeRef}
       x={table.x}
       y={table.y}
-      draggable
+      width={table.width}
+      height={table.height}
+      rotation={table.rotation || 0}
+      draggable={!table.locked}
       onDragEnd={(e) => onDragEnd?.(table.id, e.target.x(), e.target.y())}
+      onTransformEnd={() => onTransformEnd?.(table.id)}
     >
       <Rect
         id={table.id}

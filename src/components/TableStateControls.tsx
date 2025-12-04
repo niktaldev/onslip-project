@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Lock, Unlock } from "lucide-react";
 
 type Props = {
   tableName: string;
@@ -8,6 +8,8 @@ type Props = {
   onPreviousState: () => void;
   onNextState: () => void;
   isLoading?: boolean;
+  isLocked?: boolean;
+  onToggleLock?: () => void;
 };
 
 export default function TableStateControls({
@@ -16,6 +18,8 @@ export default function TableStateControls({
   onPreviousState,
   onNextState,
   isLoading,
+  isLocked = false,
+  onToggleLock,
 }: Props) {
   const displayState = currentState
     ? currentState.split(":")[1]?.replace(/_/g, " ")
@@ -44,6 +48,23 @@ export default function TableStateControls({
         >
           <ChevronRight className="w-4 h-4" />
         </button>
+        {onToggleLock && (
+          <button
+            onClick={onToggleLock}
+            className={`p-2 rounded-md transition-colors ${
+              isLocked
+                ? "bg-red-500 text-white hover:bg-red-600"
+                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+            }`}
+            title={isLocked ? "Unlock table" : "Lock table"}
+          >
+            {isLocked ? (
+              <Lock className="w-4 h-4" />
+            ) : (
+              <Unlock className="w-4 h-4" />
+            )}
+          </button>
+        )}
       </div>
     </div>
   );
