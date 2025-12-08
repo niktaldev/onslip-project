@@ -9,7 +9,7 @@ import {
   listOrders,
   setNextOrderState,
   setPreviousOrderState,
-} from "../lib/states";
+} from "../../lib/states";
 
 export default function PageState() {
   async function handleClick() {

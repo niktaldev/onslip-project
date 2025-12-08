@@ -6,7 +6,7 @@ import {
   setPreviousOrderState,
   getLocations,
   getOrderState,
-} from "../app/lib/states";
+} from "../lib/states";
 
 interface UseTableStatesProps {
   tables: Table[];
