@@ -14,6 +14,13 @@ export interface Table {
   locked?: boolean; // Whether the table is locked from transformations
 }
 
+export interface Chair {
+  chairId: number; // Backend chair ID (tab ID)
+  position: number; // Position index around the table
+  orderId?: number; // Onslip 360 order ID that this chair belongs to
+  name?: string; // Chair name
+}
+
 export function createTable(opts?: Partial<Table>): Table {
   const id = opts?.id ?? Date.now();
   return {

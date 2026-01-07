@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createChair, getChair, getTableChairs } from "@/lib/chairs";
+import type { Chair } from "@/types/table";
 
 interface TableChairsProps {
   id: number;
@@ -15,28 +17,149 @@ interface TableChairsProps {
 }
 
 export default function TableChairs({
-  id,
   name,
   maxCapacity,
-  minCapacity,
   width,
   height,
   orderId,
   currentState,
-  locked,
 }: TableChairsProps) {
-  const [occupiedChairs, setOccupiedChairs] = useState<Set<number>>(new Set());
+  const [chairs, setChairs] = useState<Map<number, Chair>>(new Map());
+  const [chairDetails, setChairDetails] = useState<Map<number, unknown>>(
+    new Map()
+  );
+  const [isLoading, setIsLoading] = useState(false);
 
-  const toggleChair = (position: number) => {
-    setOccupiedChairs((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(position)) {
-        newSet.delete(position);
-      } else {
-        newSet.add(position);
+  // Map state names to colors (same as canvas)
+  const getStateColor = (state?: string): string => {
+    if (!state) return "bg-gray-100";
+
+    const stateKey = state.split(":")[1]?.toLowerCase();
+
+    const colorMap: Record<string, string> = {
+      ready: "bg-green-300",
+      guest_arrived: "bg-yellow-300",
+      drinks_ordered: "bg-amber-400",
+      drinks_served: "bg-orange-400",
+      food_ordered: "bg-orange-500",
+      food_served: "bg-amber-500",
+      bill_requested: "bg-red-300",
+      paid: "bg-purple-400",
+      uncleaned: "bg-red-400",
+      cleaned: "bg-blue-400",
+    };
+
+    return colorMap[stateKey] ?? "bg-gray-100";
+  };
+
+  // Format state text for display
+  const displayState = currentState
+    ? currentState.split(":")[1]?.replace(/_/g, " ")
+    : "";
+  const stateColor = getStateColor(currentState);
+
+  const loadExistingChairs = async () => {
+    if (!orderId) return;
+
+    try {
+      const existingChairs = await getTableChairs(orderId);
+
+      if (!existingChairs || existingChairs.length === 0) {
+        setChairs(new Map());
+        return;
       }
-      return newSet;
-    });
+
+      const chairMap = new Map<number, Chair>();
+
+      existingChairs.forEach(
+        (chair: { id: number; name?: string; labelNames?: string[] }) => {
+          if (chair && chair.id) {
+            // Extract position from label names (format: "chair-position-{position}")
+            let position = 0;
+            if (chair.labelNames && chair.labelNames.length > 0) {
+              const positionLabel = chair.labelNames.find((labelName: string) =>
+                labelName.startsWith("chair-position-")
+              );
+              if (positionLabel) {
+                position = parseInt(
+                  positionLabel.replace("chair-position-", ""),
+                  10
+                );
+              }
+            }
+
+            chairMap.set(position, {
+              chairId: chair.id,
+              position: position,
+              orderId: orderId,
+              name: chair.name,
+            });
+          }
+        }
+      );
+
+      setChairs(chairMap);
+    } catch (error) {
+      console.error("Failed to load existing chairs:", error);
+      setChairs(new Map());
+    }
+  };
+
+  // Load existing chairs when component mounts
+  useEffect(() => {
+    if (orderId) {
+      loadExistingChairs();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderId]);
+
+  const handleChairClick = async (position: number) => {
+    if (!orderId) {
+      alert("Table must have an orderId to manage chairs");
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const existingChair = chairs.get(position);
+
+      if (existingChair) {
+        // Chair exists - fetch and display details
+        const details = await getChair(existingChair.chairId);
+
+        if (!details) {
+          alert("Chair not found. It may have been deleted.");
+          await loadExistingChairs();
+          return;
+        }
+
+        setChairDetails((prev) => {
+          const newMap = new Map(prev);
+          newMap.set(position, details);
+          return newMap;
+        });
+
+        // Show chair details
+        alert(
+          `Chair Details:\nName: ${details.name}\nID: ${details.id}\nCreated: ${details.created}`
+        );
+      } else {
+        // Chair doesn't exist - create new one
+        const chairName = `${name}-Chair-${position + 1}`;
+        await createChair(chairName, orderId, position);
+
+        // Reload chairs to get the new chair with its ID
+        await loadExistingChairs();
+
+        alert(`Created new chair: ${chairName}`);
+      }
+    } catch (error) {
+      console.error("Failed to handle chair click:", error);
+      alert("Failed to handle chair action. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Calculate chair positions around the table
@@ -104,17 +227,24 @@ export default function TableChairs({
     position: number;
     total: number;
   }) => {
-    const isOccupied = occupiedChairs.has(chairData.index);
+    const chair = chairs.get(chairData.index);
+    const hasDetails = chairDetails.has(chairData.index);
+    const isOccupied = chair !== undefined;
+
     const baseClasses = `w-8 h-8 flex items-center justify-center border-2 rounded cursor-pointer transition-colors select-none`;
     const colorClasses = isOccupied
-      ? "bg-green-500 border-green-700 text-white"
+      ? hasDetails
+        ? "bg-blue-500 border-blue-700 text-white"
+        : "bg-green-500 border-green-700 text-white"
       : "bg-gray-200 border-gray-400 text-gray-600 hover:bg-gray-300";
 
     return (
       <button
         key={chairData.index}
-        onClick={() => toggleChair(chairData.index)}
-        className={`${baseClasses} ${colorClasses}`}
+        onClick={() => handleChairClick(chairData.index)}
+        disabled={isLoading}
+        className={`${baseClasses} ${colorClasses} disabled:opacity-50 disabled:cursor-not-allowed`}
+        title={chair ? `Chair: ${chair.name}` : "Create new chair"}
       >
         {isOccupied ? "O" : "X"}
       </button>
@@ -142,10 +272,19 @@ export default function TableChairs({
 
         {/* Table */}
         <div
-          className="flex justify-center items-center border-2 border-amber-400 rounded bg-amber-50"
-          style={{ width: `${width}px`, height: `${height}px` }}
+          className={`flex flex-col justify-center items-center border-2 border-gray-400 rounded ${stateColor} shadow-sm`}
+          style={{
+            width: `${width}px`,
+            height: `${height}px`,
+            minHeight: "80px",
+          }}
         >
-          <span className="font-semibold text-lg">{name}</span>
+          <span className="font-semibold text-lg text-gray-800">{name}</span>
+          {displayState && (
+            <span className="text-sm text-gray-700 mt-1 capitalize">
+              {displayState}
+            </span>
+          )}
         </div>
 
         {/* Right chairs */}
@@ -161,8 +300,11 @@ export default function TableChairs({
 
       {/* Status info */}
       <div className="mt-4 text-sm text-gray-600">
-        Occupied: {occupiedChairs.size} / {maxCapacity}
+        Occupied: {chairs.size} / {maxCapacity}
       </div>
+      {isLoading && (
+        <div className="mt-2 text-sm text-blue-600">Loading...</div>
+      )}
     </div>
   );
 }

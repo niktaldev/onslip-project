@@ -249,8 +249,11 @@ export async function createStateResourceForOrder(orderId: number) {
     name: `order-${orderId}-state:null`,
   });
 
+  // Preserve existing resources (like chairs) when adding state resource
+  const existingResources = order.resources || [];
+
   const updateOrder = await api.updateOrder(orderId, {
-    resources: [resource.id],
+    resources: [...existingResources, resource.id],
   });
 
   console.log("Created State Resource for Order:", resource);
@@ -298,46 +301,56 @@ async function changeOrderState(orderId: number, direction: "next" | "prev") {
   }
 
   for (const resourceId of order.resources) {
-    const resource = await api.getResource(resourceId);
-    if (resource.name.startsWith(`order-${orderId}-state:`)) {
-      // Extract the current state from the resource name (everything after "order-X-state:")
-      const currentState = resource.name.substring(
-        `order-${orderId}-state:`.length
-      );
+    try {
+      const resource = await api.getResource(resourceId);
+      if (
+        resource &&
+        resource.name &&
+        resource.name.startsWith(`order-${orderId}-state:`)
+      ) {
+        // Extract the current state from the resource name (everything after "order-X-state:")
+        const currentState = resource.name.substring(
+          `order-${orderId}-state:`.length
+        );
 
-      let newState: string;
-      if (currentState === "null") {
-        newState =
-          direction === "next"
-            ? currentStates[0]
-            : currentStates[currentStates.length - 1];
-      } else {
-        const currentIndex = currentStates.indexOf(currentState);
-
-        if (currentIndex === -1) {
-          console.error(`Current state "${currentState}" not found`);
-          continue;
-        }
-
-        if (direction === "next") {
-          // If at last state, jump to first; otherwise, go to next
+        let newState: string;
+        if (currentState === "null") {
           newState =
-            currentIndex === currentStates.length - 1
+            direction === "next"
               ? currentStates[0]
-              : currentStates[currentIndex + 1];
+              : currentStates[currentStates.length - 1];
         } else {
-          // If at first state, jump to last; otherwise, go to previous
-          newState =
-            currentIndex === 0
-              ? currentStates[currentStates.length - 1]
-              : currentStates[currentIndex - 1];
-        }
-      }
+          const currentIndex = currentStates.indexOf(currentState);
 
-      await updateStateResource(orderId, resourceId, newState);
-      console.log(
-        `Order ${orderId} state changed from "${currentState}" to "${newState}"`
-      );
+          if (currentIndex === -1) {
+            console.error(`Current state "${currentState}" not found`);
+            continue;
+          }
+
+          if (direction === "next") {
+            // If at last state, jump to first; otherwise, go to next
+            newState =
+              currentIndex === currentStates.length - 1
+                ? currentStates[0]
+                : currentStates[currentIndex + 1];
+          } else {
+            // If at first state, jump to last; otherwise, go to previous
+            newState =
+              currentIndex === 0
+                ? currentStates[currentStates.length - 1]
+                : currentStates[currentIndex - 1];
+          }
+        }
+
+        await updateStateResource(orderId, resourceId, newState);
+        console.log(
+          `Order ${orderId} state changed from "${currentState}" to "${newState}"`
+        );
+      }
+    } catch {
+      // Skip items that aren't resources (e.g., tabs/chairs)
+      // This is expected since order.resources can contain both resource IDs and tab IDs
+      continue;
     }
   }
 }
