@@ -105,7 +105,7 @@ export default function TableChairs({
     total: number;
   }) => {
     const isOccupied = occupiedChairs.has(chairData.index);
-    const baseClasses = `w-8 h-8 flex items-center justify-center border-2 rounded cursor-pointer transition-colors`;
+    const baseClasses = `w-8 h-8 flex items-center justify-center border-2 rounded cursor-pointer transition-colors select-none`;
     const colorClasses = isOccupied
       ? "bg-green-500 border-green-700 text-white"
       : "bg-gray-200 border-gray-400 text-gray-600 hover:bg-gray-300";
@@ -127,7 +127,7 @@ export default function TableChairs({
   const leftChairs = chairPositions.filter((c) => c.side === "left");
 
   return (
-    <div className="flex flex-col items-center justify-center w-full min-h-[300px] p-8 border border-gray-500">
+    <div className="flex flex-col items-center justify-center w-full min-h-[300px] p-8 border border-gray-500 rounded-lg">
       {/* Top chairs */}
       <div className="flex gap-2 mb-2">
         {topChairs.map((chair) => renderChair(chair))}
