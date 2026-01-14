@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { createChair, getChair, getTableChairs } from "@/lib/chairs";
 import type { Chair } from "@/types/table";
+import { distributeChairPositions } from "@/lib/tableHelpers";
 
 interface ChairDetails {
   id: number;
@@ -20,6 +21,7 @@ interface TableChairsProps {
   orderId?: number;
   currentState?: string;
   locked?: boolean;
+  availablePositions?: number[];
 }
 
 export default function TableChairs({
@@ -29,6 +31,7 @@ export default function TableChairs({
   height,
   orderId,
   currentState,
+  availablePositions,
 }: TableChairsProps) {
   const [chairs, setChairs] = useState<Map<number, Chair>>(new Map());
   const [chairDetails, setChairDetails] = useState<Map<number, ChairDetails>>(
@@ -36,6 +39,11 @@ export default function TableChairs({
   );
   const [selectedChair, setSelectedChair] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Use availablePositions if provided, otherwise allow all positions up to maxCapacity
+  const allowedPositions = availablePositions
+    ? new Set(availablePositions)
+    : new Set(Array.from({ length: maxCapacity }, (_, i) => i));
 
   // Map state names to colors (same as canvas)
   const getStateColor = (state?: string): string => {
@@ -126,6 +134,12 @@ export default function TableChairs({
       return;
     }
 
+    // Check if this position is allowed
+    if (!allowedPositions.has(position)) {
+      alert("This chair position is not available for this table");
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -150,6 +164,14 @@ export default function TableChairs({
         // Set selected chair to show details below
         setSelectedChair(position);
       } else {
+        // Check if we've reached max capacity before creating new chair
+        if (chairs.size >= maxCapacity) {
+          alert(
+            `Maximum capacity reached (${maxCapacity} chairs). Remove an existing chair to add a new one.`
+          );
+          return;
+        }
+
         // Chair doesn't exist - create new one
         const chairName = `${name}-Chair-${position + 1}`;
         await createChair(chairName, orderId, position);
@@ -166,63 +188,135 @@ export default function TableChairs({
   };
 
   // Calculate chair positions around the table
+  // Use maxPossiblePositions to show all possible positions
   const getChairPositions = () => {
     const positions = [];
-    const chairsPerSide = Math.ceil(maxCapacity / 4);
-    const top = Math.min(chairsPerSide, Math.ceil(maxCapacity / 4));
-    const right = Math.min(chairsPerSide, Math.ceil((maxCapacity - top) / 3));
-    const bottom = Math.min(
-      chairsPerSide,
-      Math.ceil((maxCapacity - top - right) / 2)
-    );
-    const left = maxCapacity - top - right - bottom;
+    const distribution = distributeChairPositions(width, height);
 
     let chairIndex = 0;
 
+    // Top-left to top diagonal
+    for (let i = 0; i < distribution.topLeftToTop; i++) {
+      positions.push({
+        index: chairIndex++,
+        side: "top-left-to-top",
+        position: i,
+        total: distribution.topLeftToTop,
+      });
+    }
+
     // Top chairs
-    for (let i = 0; i < top; i++) {
+    for (let i = 0; i < distribution.top; i++) {
       positions.push({
         index: chairIndex++,
         side: "top",
         position: i,
-        total: top,
+        total: distribution.top,
+      });
+    }
+
+    // Top to top-right diagonal
+    for (let i = 0; i < distribution.topToTopRight; i++) {
+      positions.push({
+        index: chairIndex++,
+        side: "top-to-top-right",
+        position: i,
+        total: distribution.topToTopRight,
+      });
+    }
+
+    // Top-right to right diagonal
+    for (let i = 0; i < distribution.topRightToRight; i++) {
+      positions.push({
+        index: chairIndex++,
+        side: "top-right-to-right",
+        position: i,
+        total: distribution.topRightToRight,
       });
     }
 
     // Right chairs
-    for (let i = 0; i < right; i++) {
+    for (let i = 0; i < distribution.right; i++) {
       positions.push({
         index: chairIndex++,
         side: "right",
         position: i,
-        total: right,
+        total: distribution.right,
+      });
+    }
+
+    // Right to bottom-right diagonal
+    for (let i = 0; i < distribution.rightToBottomRight; i++) {
+      positions.push({
+        index: chairIndex++,
+        side: "right-to-bottom-right",
+        position: i,
+        total: distribution.rightToBottomRight,
+      });
+    }
+
+    // Bottom-right to bottom diagonal
+    for (let i = 0; i < distribution.bottomRightToBottom; i++) {
+      positions.push({
+        index: chairIndex++,
+        side: "bottom-right-to-bottom",
+        position: i,
+        total: distribution.bottomRightToBottom,
       });
     }
 
     // Bottom chairs
-    for (let i = 0; i < bottom; i++) {
+    for (let i = 0; i < distribution.bottom; i++) {
       positions.push({
         index: chairIndex++,
         side: "bottom",
         position: i,
-        total: bottom,
+        total: distribution.bottom,
+      });
+    }
+
+    // Bottom to bottom-left diagonal
+    for (let i = 0; i < distribution.bottomToBottomLeft; i++) {
+      positions.push({
+        index: chairIndex++,
+        side: "bottom-to-bottom-left",
+        position: i,
+        total: distribution.bottomToBottomLeft,
+      });
+    }
+
+    // Bottom-left to left diagonal
+    for (let i = 0; i < distribution.bottomLeftToLeft; i++) {
+      positions.push({
+        index: chairIndex++,
+        side: "bottom-left-to-left",
+        position: i,
+        total: distribution.bottomLeftToLeft,
       });
     }
 
     // Left chairs
-    for (let i = 0; i < left; i++) {
+    for (let i = 0; i < distribution.left; i++) {
       positions.push({
         index: chairIndex++,
         side: "left",
         position: i,
-        total: left,
+        total: distribution.left,
+      });
+    }
+
+    // Left to top-left diagonal
+    for (let i = 0; i < distribution.leftToTopLeft; i++) {
+      positions.push({
+        index: chairIndex++,
+        side: "left-to-top-left",
+        position: i,
+        total: distribution.leftToTopLeft,
       });
     }
 
     return positions;
   };
-
-  const chairPositions = getChairPositions();
 
   const renderChair = (chairData: {
     index: number;
@@ -233,44 +327,105 @@ export default function TableChairs({
     const chair = chairs.get(chairData.index);
     const hasDetails = chairDetails.has(chairData.index);
     const isOccupied = chair !== undefined;
+    const isAvailable = allowedPositions.has(chairData.index);
+    const capacityReached = chairs.size >= maxCapacity;
 
+    // Different styling based on availability and occupancy
     const baseClasses = `w-8 h-8 flex items-center justify-center border-2 rounded cursor-pointer transition-colors select-none`;
-    const colorClasses = isOccupied
-      ? hasDetails
+
+    let colorClasses = "";
+    let displayText = "";
+    let titleText = "";
+
+    if (!isAvailable) {
+      // Position not available - grayed out and disabled
+      colorClasses =
+        "bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed opacity-50";
+      displayText = "–";
+      titleText = "Position not available";
+    } else if (isOccupied) {
+      // Occupied position - green or blue
+      colorClasses = hasDetails
         ? "bg-blue-500 border-blue-700 text-white"
-        : "bg-green-500 border-green-700 text-white"
-      : "bg-gray-200 border-gray-400 text-gray-600 hover:bg-gray-300";
+        : "bg-green-500 border-green-700 text-white";
+      displayText = "O";
+      titleText = chair
+        ? `Chair: ${chair.name} (click to view details)`
+        : "Occupied";
+    } else if (capacityReached) {
+      // Available position but capacity is full - yellowish warning
+      colorClasses =
+        "bg-yellow-100 border-yellow-400 text-yellow-700 cursor-not-allowed opacity-60";
+      displayText = "X";
+      titleText = `Capacity full (${chairs.size}/${maxCapacity}). Remove a chair to add here.`;
+    } else {
+      // Available and can be occupied
+      colorClasses =
+        "bg-gray-200 border-gray-400 text-gray-600 hover:bg-gray-300";
+      displayText = "X";
+      titleText = "Click to add chair";
+    }
 
     return (
       <button
         key={chairData.index}
         onClick={() => handleChairClick(chairData.index)}
-        disabled={isLoading}
-        className={`${baseClasses} ${colorClasses} disabled:opacity-50 disabled:cursor-not-allowed`}
-        title={chair ? `Chair: ${chair.name}` : "Create new chair"}
+        disabled={isLoading || !isAvailable || (capacityReached && !isOccupied)}
+        className={`${baseClasses} ${colorClasses} disabled:cursor-not-allowed`}
+        title={titleText}
       >
-        {isOccupied ? "O" : "X"}
+        {displayText}
       </button>
     );
   };
 
+  const chairPositions = getChairPositions();
+
+  const topLeftToTop = chairPositions.filter(
+    (c) => c.side === "top-left-to-top"
+  );
   const topChairs = chairPositions.filter((c) => c.side === "top");
+  const topToTopRight = chairPositions.filter(
+    (c) => c.side === "top-to-top-right"
+  );
+  const topRightToRight = chairPositions.filter(
+    (c) => c.side === "top-right-to-right"
+  );
   const rightChairs = chairPositions.filter((c) => c.side === "right");
+  const rightToBottomRight = chairPositions.filter(
+    (c) => c.side === "right-to-bottom-right"
+  );
+  const bottomRightToBottom = chairPositions.filter(
+    (c) => c.side === "bottom-right-to-bottom"
+  );
   const bottomChairs = chairPositions.filter((c) => c.side === "bottom");
+  const bottomToBottomLeft = chairPositions.filter(
+    (c) => c.side === "bottom-to-bottom-left"
+  );
+  const bottomLeftToLeft = chairPositions.filter(
+    (c) => c.side === "bottom-left-to-left"
+  );
   const leftChairs = chairPositions.filter((c) => c.side === "left");
+  const leftToTopLeft = chairPositions.filter(
+    (c) => c.side === "left-to-top-left"
+  );
 
   return (
     <div className="flex flex-col items-center justify-center w-full min-h-[300px] p-8 border border-gray-500 rounded-lg">
-      {/* Top chairs */}
+      {/* Top row: diagonal, top chairs, diagonal */}
       <div className="flex gap-2 mb-2">
+        {topLeftToTop.map((chair) => renderChair(chair))}
         {topChairs.map((chair) => renderChair(chair))}
+        {topToTopRight.map((chair) => renderChair(chair))}
       </div>
 
       {/* Middle section with left chairs, table, and right chairs */}
       <div className="flex items-center gap-2">
         {/* Left chairs */}
         <div className="flex flex-col gap-2">
+          {leftToTopLeft.map((chair) => renderChair(chair))}
           {leftChairs.map((chair) => renderChair(chair))}
+          {bottomLeftToLeft.map((chair) => renderChair(chair))}
         </div>
 
         {/* Table */}
@@ -292,18 +447,43 @@ export default function TableChairs({
 
         {/* Right chairs */}
         <div className="flex flex-col gap-2">
+          {topRightToRight.map((chair) => renderChair(chair))}
           {rightChairs.map((chair) => renderChair(chair))}
+          {rightToBottomRight.map((chair) => renderChair(chair))}
         </div>
       </div>
 
-      {/* Bottom chairs */}
+      {/* Bottom row: diagonal, bottom chairs, diagonal */}
       <div className="flex gap-2 mt-2">
+        {bottomToBottomLeft.map((chair) => renderChair(chair))}
         {bottomChairs.map((chair) => renderChair(chair))}
+        {bottomRightToBottom.map((chair) => renderChair(chair))}
       </div>
 
-      {/* Status info */}
-      <div className="mt-4 text-sm text-gray-600">
-        Occupied: {chairs.size} / {maxCapacity}
+      {/* Status info and legend */}
+      <div className="mt-4 space-y-2">
+        <div className="text-sm text-gray-600 font-semibold">
+          Occupied: {chairs.size} / {maxCapacity} max capacity (
+          {allowedPositions.size} positions available)
+        </div>
+        <div className="flex gap-4 text-xs text-gray-600 flex-wrap justify-center">
+          <div className="flex items-center gap-1">
+            <span className="w-4 h-4 bg-green-500 border border-green-700 rounded"></span>
+            <span>Occupied</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="w-4 h-4 bg-gray-200 border border-gray-400 rounded"></span>
+            <span>Available</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="w-4 h-4 bg-yellow-100 border border-yellow-400 rounded"></span>
+            <span>Full capacity</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="w-4 h-4 bg-gray-100 border border-gray-300 rounded opacity-50"></span>
+            <span>Disabled</span>
+          </div>
+        </div>
       </div>
       {isLoading && (
         <div className="mt-2 text-sm text-blue-600">Loading...</div>

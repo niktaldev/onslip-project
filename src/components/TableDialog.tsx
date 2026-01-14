@@ -10,6 +10,8 @@ import {
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { Table } from "../types/table";
 import TableChairs from "./TableChairs";
+import ChairPositionEditor from "./ChairPositionEditor";
+import { useState } from "react";
 
 interface TableDialogProps {
   table: Table | null;
@@ -18,6 +20,7 @@ interface TableDialogProps {
   onPreviousState: () => void;
   onNextState: () => void;
   isLoading?: boolean;
+  onUpdateAvailablePositions?: (positions: number[]) => void;
 }
 
 export default function TableDialog({
@@ -27,12 +30,21 @@ export default function TableDialog({
   onPreviousState,
   onNextState,
   isLoading,
+  onUpdateAvailablePositions,
 }: TableDialogProps) {
+  const [editingPositions, setEditingPositions] = useState(false);
+
   if (!table) return null;
 
   const displayState = table.currentState
     ? table.currentState.split(":")[1]?.replace(/_/g, " ")
     : "No state";
+
+  const handleUpdatePositions = (positions: number[]) => {
+    if (onUpdateAvailablePositions) {
+      onUpdateAvailablePositions(positions);
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -41,16 +53,51 @@ export default function TableDialog({
           <DialogTitle>Table {table.name}</DialogTitle>
           <DialogDescription>Table information and details</DialogDescription>
         </DialogHeader>
-        <TableChairs
-          id={table.id}
-          name={table.name}
-          maxCapacity={table.capacity}
-          width={table.width}
-          height={table.height}
-          orderId={table.orderId}
-          currentState={table.currentState}
-          locked={table.locked}
-        />
+
+        {/* Toggle between chair management and position editor */}
+        <div className="flex gap-2 mb-4">
+          <button
+            onClick={() => setEditingPositions(false)}
+            className={`flex-1 px-4 py-2 rounded transition-colors ${
+              !editingPositions
+                ? "bg-purple-500 text-white"
+                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+            }`}
+          >
+            Manage Chairs
+          </button>
+          <button
+            onClick={() => setEditingPositions(true)}
+            className={`flex-1 px-4 py-2 rounded transition-colors ${
+              editingPositions
+                ? "bg-purple-500 text-white"
+                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+            }`}
+          >
+            Edit Positions
+          </button>
+        </div>
+
+        {editingPositions ? (
+          <ChairPositionEditor
+            width={table.width}
+            height={table.height}
+            availablePositions={table.availablePositions || []}
+            onUpdate={handleUpdatePositions}
+          />
+        ) : (
+          <TableChairs
+            id={table.id}
+            name={table.name}
+            maxCapacity={table.capacity}
+            width={table.width}
+            height={table.height}
+            orderId={table.orderId}
+            currentState={table.currentState}
+            locked={table.locked}
+            availablePositions={table.availablePositions}
+          />
+        )}
         {/* State change controls */}
 
         <h3 className="font-semibold mb-3">Change State</h3>

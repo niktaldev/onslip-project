@@ -54,6 +54,7 @@ export default function Editor() {
     handleTransformEnd,
     handleToggleLock,
     handleCapacityChange,
+    handleAvailablePositionsUpdate,
   } = useTableManagement([]);
 
   // Line management (lines, snap indicators)
@@ -337,6 +338,7 @@ export default function Editor() {
         onPreviousState={() => handleStateChange("prev")}
         onNextState={() => handleStateChange("next")}
         isLoading={isStateLoading}
+        onUpdateAvailablePositions={handleAvailablePositionsUpdate}
       />
     </div>
   );

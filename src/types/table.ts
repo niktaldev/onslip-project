@@ -12,6 +12,7 @@ export interface Table {
   orderId?: number; // Onslip 360 order ID
   currentState?: string; // Current state from the API (e.g., "1:ready")
   locked?: boolean; // Whether the table is locked from transformations
+  availablePositions?: number[]; // Array of position indices that can have chairs
 }
 
 export interface Chair {

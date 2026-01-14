@@ -84,6 +84,17 @@ export function useTableManagement(initialTables: Table[] = []) {
     );
   };
 
+  // Handle available positions update for selected table
+  const handleAvailablePositionsUpdate = (positions: number[]) => {
+    if (!selectedId) return;
+
+    setTables((prevTables) =>
+      prevTables.map((t) =>
+        t.id === selectedId ? { ...t, availablePositions: positions } : t
+      )
+    );
+  };
+
   // Attach transformer to selected table (only if not locked)
   useEffect(() => {
     if (transformerRef.current) {
@@ -115,5 +126,6 @@ export function useTableManagement(initialTables: Table[] = []) {
     handleTransformEnd,
     handleToggleLock,
     handleCapacityChange,
+    handleAvailablePositionsUpdate,
   };
 }
