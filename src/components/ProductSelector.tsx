@@ -49,11 +49,7 @@ export default function ProductSelector({
       setAddingProduct(productId);
       await addProductToChair(chairId, productId);
 
-      // Show success feedback
-      const productName = products.find((p) => p.id === productId)?.name;
-      alert(`Added ${productName} to ${chairName}`);
-
-      // Notify parent component
+      // Notify parent component to refresh items list
       if (onProductAdded) {
         onProductAdded();
       }

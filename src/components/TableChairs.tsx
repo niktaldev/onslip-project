@@ -4,12 +4,31 @@ import { useState, useEffect } from "react";
 import { createChair, getChair, getTableChairs } from "@/lib/chairs";
 import type { Chair } from "@/types/table";
 import { distributeChairPositions } from "@/lib/tableHelpers";
-import ProductSelector from "./ProductSelector";
+import {
+  getChairItems,
+  listAllProducts,
+  addProductToChair,
+} from "@/lib/products";
 
 interface ChairDetails {
   id: number;
   name: string;
   created?: string;
+}
+
+interface Item {
+  product?: number;
+  "product-name": string;
+  quantity: number;
+  price?: number;
+  type?: string;
+}
+
+interface Product {
+  id: number;
+  name: string;
+  price?: number;
+  description?: string;
 }
 
 interface TableChairsProps {
@@ -40,11 +59,9 @@ export default function TableChairs({
   );
   const [selectedChair, setSelectedChair] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [showProductSelector, setShowProductSelector] = useState(false);
-  const [selectedChairForProducts, setSelectedChairForProducts] = useState<{
-    chairId: number;
-    position: number;
-  } | null>(null);
+  const [chairItems, setChairItems] = useState<Map<number, Item[]>>(new Map());
+  const [products, setProducts] = useState<Product[]>([]);
+  const [addingProduct, setAddingProduct] = useState<number | null>(null);
 
   // Use availablePositions if provided, otherwise allow all positions up to maxCapacity
   const allowedPositions = availablePositions
@@ -134,6 +151,33 @@ export default function TableChairs({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId]);
 
+  // Load products once on mount
+  useEffect(() => {
+    loadProducts();
+  }, []);
+
+  const loadProducts = async () => {
+    try {
+      const allProducts = await listAllProducts();
+      setProducts(allProducts);
+    } catch (error) {
+      console.error("Failed to load products:", error);
+    }
+  };
+
+  const loadChairItems = async (chairId: number, position: number) => {
+    try {
+      const items = await getChairItems(chairId);
+      setChairItems((prev) => {
+        const newMap = new Map(prev);
+        newMap.set(position, items);
+        return newMap;
+      });
+    } catch (error) {
+      console.error("Failed to load chair items:", error);
+    }
+  };
+
   const handleChairClick = async (position: number) => {
     if (!orderId) {
       alert("Table must have an orderId to manage chairs");
@@ -152,7 +196,14 @@ export default function TableChairs({
       const existingChair = chairs.get(position);
 
       if (existingChair) {
-        // Chair exists - show product selector
+        // Chair exists - toggle selection if already selected, otherwise select it
+        if (selectedChair === position) {
+          // Deselect if clicking the same chair
+          setSelectedChair(null);
+          return;
+        }
+
+        // Show product selector
         const details = await getChair(existingChair.chairId);
 
         if (!details) {
@@ -170,12 +221,8 @@ export default function TableChairs({
         // Set selected chair to show details below
         setSelectedChair(position);
 
-        // Show product selector for this chair
-        setSelectedChairForProducts({
-          chairId: existingChair.chairId,
-          position: position,
-        });
-        setShowProductSelector(true);
+        // Load items for this chair
+        await loadChairItems(existingChair.chairId, position);
       } else {
         // Check if we've reached max capacity before creating new chair
         if (chairs.size >= maxCapacity) {
@@ -406,9 +453,16 @@ export default function TableChairs({
           </div>
           {(() => {
             const details = chairDetails.get(selectedChair);
+            const items = chairItems.get(selectedChair) || [];
             if (!details) return null;
+
+            const totalPrice = items.reduce(
+              (sum, item) => sum + (item.price || 0) * item.quantity,
+              0,
+            );
+
             return (
-              <div className="space-y-2 text-sm">
+              <div className="space-y-3 text-sm">
                 <div>
                   <span className="font-medium text-gray-700">Name: </span>
                   <span className="text-gray-600">{details.name}</span>
@@ -425,29 +479,114 @@ export default function TableChairs({
                       : "N/A"}
                   </span>
                 </div>
+
+                {/* Items List */}
+                <div className="pt-2 border-t border-blue-300">
+                  <h4 className="font-semibold text-gray-800 mb-2">
+                    Items ({items.length})
+                  </h4>
+                  {items.length === 0 ? (
+                    <p className="text-gray-500 italic text-xs">
+                      No items added yet. Click a product below to add.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {items.map((item, index) => (
+                        <div
+                          key={index}
+                          className="flex justify-between items-start bg-white p-2 rounded border border-blue-200"
+                        >
+                          <div className="flex-1">
+                            <div className="font-medium text-gray-800">
+                              {item["product-name"]}
+                            </div>
+                            <div className="text-xs text-gray-600">
+                              Qty: {item.quantity} ×{" "}
+                              {(item.price || 0).toFixed(2)} kr
+                            </div>
+                          </div>
+                          <div className="font-semibold text-gray-800">
+                            {((item.price || 0) * item.quantity).toFixed(2)} kr
+                          </div>
+                        </div>
+                      ))}
+                      <div className="flex justify-between items-center pt-2 border-t border-blue-300 font-bold text-gray-900">
+                        <span>Total:</span>
+                        <span>{totalPrice.toFixed(2)} kr</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Add Products Section */}
+                <div className="pt-2 border-t border-blue-300">
+                  <h4 className="font-semibold text-gray-800 mb-2">
+                    Add Products
+                  </h4>
+                  {products.length === 0 ? (
+                    <p className="text-gray-500 italic text-xs">
+                      No products available. Create products first.
+                    </p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <div className="flex gap-2 pb-1">
+                        {products.map((product: Product) => {
+                          const chair = chairs.get(selectedChair);
+                          return (
+                            <button
+                              key={product.id}
+                              onClick={async () => {
+                                if (!chair) return;
+                                try {
+                                  setAddingProduct(product.id);
+                                  await addProductToChair(
+                                    chair.chairId,
+                                    product.id,
+                                  );
+                                  await loadChairItems(
+                                    chair.chairId,
+                                    selectedChair,
+                                  );
+                                } catch (error) {
+                                  console.error(
+                                    "Failed to add product:",
+                                    error,
+                                  );
+                                  alert(
+                                    "Failed to add product. Please try again.",
+                                  );
+                                } finally {
+                                  setAddingProduct(null);
+                                }
+                              }}
+                              disabled={addingProduct === product.id}
+                              className="shrink-0 w-32 p-2 bg-linear-to-br from-blue-50 to-blue-100 border border-blue-300 rounded hover:from-blue-100 hover:to-blue-200 hover:border-blue-400 transition-all text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                              title={product.description || product.name}
+                            >
+                              <div className="flex flex-col items-start">
+                                <span className="font-semibold text-gray-800 text-left line-clamp-1 mb-0.5">
+                                  {product.name}
+                                </span>
+                                <span className="text-xs font-bold text-blue-700">
+                                  {product.price?.toFixed(2) || "0.00"} kr
+                                </span>
+                                {addingProduct === product.id && (
+                                  <span className="text-xs text-gray-600 mt-0.5">
+                                    Adding...
+                                  </span>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             );
           })()}
         </div>
-      )}
-
-      {/* Product Selector */}
-      {showProductSelector && selectedChairForProducts && (
-        <ProductSelector
-          chairId={selectedChairForProducts.chairId}
-          chairName={
-            chairDetails.get(selectedChairForProducts.position)?.name ||
-            `Chair ${selectedChairForProducts.position + 1}`
-          }
-          onClose={() => {
-            setShowProductSelector(false);
-            setSelectedChairForProducts(null);
-          }}
-          onProductAdded={() => {
-            // Optionally reload chair details to show updated items
-            loadExistingChairs();
-          }}
-        />
       )}
     </div>
   );

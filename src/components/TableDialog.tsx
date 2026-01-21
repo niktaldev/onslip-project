@@ -48,7 +48,7 @@ export default function TableDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[90vh] sm:max-w-2xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Table {table.name}</DialogTitle>
           <DialogDescription>Table information and details</DialogDescription>
