@@ -10,6 +10,14 @@ import {
   addProductToChair,
   getProduct,
 } from "@/lib/products";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
 interface ChairDetails {
   id: number;
@@ -488,18 +496,9 @@ export default function TableChairs({
                   <span className="text-gray-600">{details.name}</span>
                 </div>
                 <div>
-                  <span className="font-medium text-gray-700">ID: </span>
+                  <span className="font-medium text-gray-700">Onslip-ID: </span>
                   <span className="text-gray-600">{details.id}</span>
                 </div>
-                <div>
-                  <span className="font-medium text-gray-700">Created: </span>
-                  <span className="text-gray-600">
-                    {details.created
-                      ? new Date(details.created).toLocaleString()
-                      : "N/A"}
-                  </span>
-                </div>
-
                 {/* Items List - Horizontal Timeline */}
                 <div className="pt-2 border-t border-blue-300">
                   <h4 className="font-semibold text-gray-800 mb-2">
@@ -511,8 +510,8 @@ export default function TableChairs({
                     </p>
                   ) : (
                     <>
-                      <div className="overflow-x-auto pb-2 scrollbar-hide">
-                        <div className="flex gap-3 min-w-max">
+                      <ScrollArea className="w-full">
+                        <div className="flex gap-3 pb-2 mb-3">
                           {items.map((item, index) => (
                             <button
                               key={index}
@@ -532,7 +531,8 @@ export default function TableChairs({
                             </button>
                           ))}
                         </div>
-                      </div>
+                        <ScrollBar orientation="horizontal" />
+                      </ScrollArea>
                       <div className="flex justify-between items-center pt-2 border-t border-blue-300 font-bold text-gray-900">
                         <span>Total:</span>
                         <span>{totalPrice.toFixed(2)} kr</span>
@@ -551,8 +551,8 @@ export default function TableChairs({
                       No products available. Create products first.
                     </p>
                   ) : (
-                    <div className="overflow-x-auto scrollbar-hide">
-                      <div className="flex gap-2 pb-1">
+                    <ScrollArea className="w-full">
+                      <div className="flex gap-2 pb-1 mb-3">
                         {products.map((product: Product) => {
                           const chair = chairs.get(selectedChair);
                           return (
@@ -603,7 +603,8 @@ export default function TableChairs({
                           );
                         })}
                       </div>
-                    </div>
+                      <ScrollBar orientation="horizontal" />
+                    </ScrollArea>
                   )}
                 </div>
               </div>
@@ -612,57 +613,44 @@ export default function TableChairs({
         </div>
       )}
 
-      {/* Item Details Popup */}
-      {selectedItem && (
-        <div
-          className="fixed inset-0 bg-opacity-20 flex items-center justify-center z-50"
-          onClick={() => setSelectedItem(null)}
-        >
-          <div
-            className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-start mb-4">
-              <h3 className="text-xl font-bold text-gray-900">Item Details</h3>
-              <button
-                onClick={() => setSelectedItem(null)}
-                className="text-gray-500 hover:text-gray-700 text-2xl leading-none"
-              >
-                ×
-              </button>
-            </div>
+      {/* Item Details Dialog */}
+      <Dialog
+        open={selectedItem !== null}
+        onOpenChange={(open) => !open && setSelectedItem(null)}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Item Details</DialogTitle>
+            <DialogDescription>
+              {selectedItem?.item["product-name"]}
+            </DialogDescription>
+          </DialogHeader>
 
-            <div className="space-y-3">
-              <div>
-                <label className="text-sm font-semibold text-gray-700">
-                  Product Name
-                </label>
-                <p className="text-gray-900">
-                  {selectedItem.item["product-name"]}
-                </p>
-              </div>
+          {selectedItem && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-semibold text-gray-700">
+                    Quantity
+                  </label>
+                  <p className="text-gray-900">{selectedItem.item.quantity}</p>
+                </div>
 
-              <div>
-                <label className="text-sm font-semibold text-gray-700">
-                  Quantity
-                </label>
-                <p className="text-gray-900">{selectedItem.item.quantity}</p>
-              </div>
-
-              <div>
-                <label className="text-sm font-semibold text-gray-700">
-                  Unit Price
-                </label>
-                <p className="text-gray-900">
-                  {(selectedItem.item.price || 0).toFixed(2)} kr
-                </p>
+                <div>
+                  <label className="text-sm font-semibold text-gray-700">
+                    Unit Price
+                  </label>
+                  <p className="text-gray-900">
+                    {(selectedItem.item.price || 0).toFixed(2)} kr
+                  </p>
+                </div>
               </div>
 
               <div>
                 <label className="text-sm font-semibold text-gray-700">
                   Total Price
                 </label>
-                <p className="text-gray-900 font-bold">
+                <p className="text-gray-900 font-bold text-lg">
                   {(
                     (selectedItem.item.price || 0) * selectedItem.item.quantity
                   ).toFixed(2)}{" "}
@@ -675,7 +663,7 @@ export default function TableChairs({
                   <label className="text-sm font-semibold text-gray-700">
                     Description
                   </label>
-                  <p className="text-gray-700 text-sm">
+                  <p className="text-gray-700 text-sm mt-1">
                     {selectedItem.productDetails.description}
                   </p>
                 </div>
@@ -690,16 +678,9 @@ export default function TableChairs({
                 </div>
               )}
             </div>
-
-            <button
-              onClick={() => setSelectedItem(null)}
-              className="mt-6 w-full bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 transition-colors"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
