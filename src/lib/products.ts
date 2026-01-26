@@ -11,8 +11,32 @@ export async function listProductGroups() {
 export async function listAllProducts() {
   const products = await api.listProducts();
 
-  console.log("Products fetched:", products);
-  return JSON.parse(JSON.stringify(products));
+  // Fetch product groups to get product group name
+  const productsWithTypes = await Promise.all(
+    products.map(async (product: { id: number; "product-group": number }) => {
+      try {
+        const productGroup = await api.getProductGroup(
+          product["product-group"],
+        );
+        return {
+          ...product,
+          productGroup: productGroup.name || "other",
+        };
+      } catch (error) {
+        console.error(
+          `Failed to get product group for product ${product.id}:`,
+          error,
+        );
+        return {
+          ...product,
+          productGroup: "other",
+        };
+      }
+    }),
+  );
+
+  console.log("Products fetched with types:", productsWithTypes);
+  return JSON.parse(JSON.stringify(productsWithTypes));
 }
 
 export async function getProduct(productId: number) {
