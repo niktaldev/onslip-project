@@ -3,21 +3,16 @@
 import { useState, useEffect } from "react";
 import { createChair, getChair, getTableChairs } from "@/lib/chairs";
 import type { Chair } from "@/types/table";
-import { distributeChairPositions } from "@/lib/tableHelpers";
 import {
   getChairItems,
   listAllProducts,
   addProductToChair,
   getProduct,
 } from "@/lib/products";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import ChairGrid from "./ChairGrid";
+import ChairItemsList from "./ChairItemsList";
+import ProductGroupsList from "./ProductGroupsList";
+import ItemDetailsDialog from "./ItemDetailsDialog";
 
 interface ChairDetails {
   id: number;
@@ -82,34 +77,6 @@ export default function TableChairs({
   const allowedPositions = availablePositions
     ? new Set(availablePositions)
     : new Set(Array.from({ length: maxCapacity }, (_, i) => i));
-
-  // Map state names to colors (same as canvas)
-  const getStateColor = (state?: string): string => {
-    if (!state) return "bg-gray-100";
-
-    const stateKey = state.split(":")[1]?.toLowerCase();
-
-    const colorMap: Record<string, string> = {
-      ready: "bg-green-300",
-      guest_arrived: "bg-yellow-300",
-      drinks_ordered: "bg-amber-400",
-      drinks_served: "bg-orange-400",
-      food_ordered: "bg-orange-500",
-      food_served: "bg-amber-500",
-      bill_requested: "bg-red-300",
-      paid: "bg-purple-400",
-      uncleaned: "bg-red-400",
-      cleaned: "bg-blue-400",
-    };
-
-    return colorMap[stateKey] ?? "bg-gray-100";
-  };
-
-  // Format state text for display
-  const displayState = currentState
-    ? currentState.split(":")[1]?.replace(/_/g, " ")
-    : "";
-  const stateColor = getStateColor(currentState);
 
   const loadExistingChairs = async () => {
     if (!orderId) return;
@@ -178,21 +145,6 @@ export default function TableChairs({
     } catch (error) {
       console.error("Failed to load products:", error);
     }
-  };
-
-  // Group products by product group
-  const groupProductsByGroup = () => {
-    const grouped = new Map<string, Product[]>();
-
-    products.forEach((product) => {
-      const group = product.productGroup || "other";
-      if (!grouped.has(group)) {
-        grouped.set(group, []);
-      }
-      grouped.get(group)!.push(product);
-    });
-
-    return grouped;
   };
 
   const loadChairItems = async (chairId: number, position: number) => {
@@ -292,191 +244,41 @@ export default function TableChairs({
     }
   };
 
-  // Calculate chair positions around the table
-  const getChairPositions = () => {
-    const positions = [];
-    const distribution = distributeChairPositions(width, height);
+  const handleProductClick = async (productId: number) => {
+    if (selectedChair === null) return;
 
-    let chairIndex = 0;
+    const chair = chairs.get(selectedChair);
+    if (!chair) return;
 
-    // Top chairs
-    for (let i = 0; i < distribution.top; i++) {
-      positions.push({
-        index: chairIndex++,
-        side: "top",
-        position: i,
-        total: distribution.top,
-      });
+    try {
+      setAddingProduct(productId);
+      await addProductToChair(chair.chairId, productId);
+      await loadChairItems(chair.chairId, selectedChair);
+    } catch (error) {
+      console.error("Failed to add product:", error);
+      alert("Failed to add product. Please try again.");
+    } finally {
+      setAddingProduct(null);
     }
-
-    // Right chairs
-    for (let i = 0; i < distribution.right; i++) {
-      positions.push({
-        index: chairIndex++,
-        side: "right",
-        position: i,
-        total: distribution.right,
-      });
-    }
-
-    // Bottom chairs
-    for (let i = 0; i < distribution.bottom; i++) {
-      positions.push({
-        index: chairIndex++,
-        side: "bottom",
-        position: i,
-        total: distribution.bottom,
-      });
-    }
-
-    // Left chairs
-    for (let i = 0; i < distribution.left; i++) {
-      positions.push({
-        index: chairIndex++,
-        side: "left",
-        position: i,
-        total: distribution.left,
-      });
-    }
-
-    return positions;
   };
-
-  const renderChair = (chairData: {
-    index: number;
-    side: string;
-    position: number;
-    total: number;
-  }) => {
-    const chair = chairs.get(chairData.index);
-    const hasDetails = chairDetails.has(chairData.index);
-    const isOccupied = chair !== undefined;
-    const isAvailable = allowedPositions.has(chairData.index);
-    const capacityReached = chairs.size >= maxCapacity;
-
-    // Different styling based on availability and occupancy
-    const baseClasses = `w-8 h-8 flex items-center justify-center border-2 rounded cursor-pointer transition-colors select-none`;
-
-    let colorClasses = "";
-    let displayText = "";
-    let titleText = "";
-
-    if (!isAvailable) {
-      // Position not available - grayed out and disabled
-      colorClasses =
-        "bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed opacity-50";
-      displayText = "–";
-      titleText = "Position not available";
-    } else if (isOccupied) {
-      // Occupied position - green or blue
-      colorClasses = hasDetails
-        ? "bg-blue-500 border-blue-700 text-white"
-        : "bg-green-500 border-green-700 text-white";
-      displayText = "O";
-      titleText = chair
-        ? `Chair: ${chair.name} (click to view details)`
-        : "Occupied";
-    } else if (capacityReached) {
-      // Available position but capacity is full - yellowish warning
-      colorClasses =
-        "bg-yellow-100 border-yellow-400 text-yellow-700 cursor-not-allowed opacity-60";
-      displayText = "X";
-      titleText = `Capacity full (${chairs.size}/${maxCapacity}). Remove a chair to add here.`;
-    } else {
-      // Available and can be occupied
-      colorClasses =
-        "bg-gray-200 border-gray-400 text-gray-600 hover:bg-gray-300";
-      displayText = "X";
-      titleText = "Click to add chair";
-    }
-
-    return (
-      <button
-        key={chairData.index}
-        onClick={() => handleChairClick(chairData.index)}
-        disabled={isLoading || !isAvailable || (capacityReached && !isOccupied)}
-        className={`${baseClasses} ${colorClasses} disabled:cursor-not-allowed`}
-        title={titleText}
-      >
-        {displayText}
-      </button>
-    );
-  };
-
-  const chairPositions = getChairPositions();
-
-  const topChairs = chairPositions.filter((c) => c.side === "top");
-  const rightChairs = chairPositions.filter((c) => c.side === "right");
-  const bottomChairs = chairPositions.filter((c) => c.side === "bottom");
-  const leftChairs = chairPositions.filter((c) => c.side === "left");
 
   return (
     <div className="flex flex-col items-center justify-center w-full min-h-[300px] p-8 border border-gray-500 rounded-lg">
-      {/* Top chairs */}
-      <div className="flex gap-2 mb-2">
-        {topChairs.map((chair) => renderChair(chair))}
-      </div>
+      <ChairGrid
+        name={name}
+        width={width}
+        height={height}
+        maxCapacity={maxCapacity}
+        chairs={chairs}
+        selectedChairs={
+          selectedChair !== null ? new Set([selectedChair]) : new Set()
+        }
+        allowedPositions={allowedPositions}
+        currentState={currentState}
+        isLoading={isLoading}
+        onChairClick={handleChairClick}
+      />
 
-      {/* Middle section with left chairs, table, and right chairs */}
-      <div className="flex items-center gap-2">
-        {/* Left chairs */}
-        <div className="flex flex-col gap-2">
-          {leftChairs.map((chair) => renderChair(chair))}
-        </div>
-
-        {/* Table */}
-        <div
-          className={`flex flex-col justify-center items-center border-2 border-gray-400 rounded ${stateColor} shadow-sm`}
-          style={{
-            width: `${width}px`,
-            height: `${height}px`,
-            minHeight: "80px",
-          }}
-        >
-          <span className="font-semibold text-lg text-gray-800">{name}</span>
-          {displayState && (
-            <span className="text-sm text-gray-700 mt-1 capitalize">
-              {displayState}
-            </span>
-          )}
-        </div>
-
-        {/* Right chairs */}
-        <div className="flex flex-col gap-2">
-          {rightChairs.map((chair) => renderChair(chair))}
-        </div>
-      </div>
-
-      {/* Bottom chairs */}
-      <div className="flex gap-2 mt-2">
-        {bottomChairs.map((chair) => renderChair(chair))}
-      </div>
-
-      {/* Status info and legend */}
-      <div className="mt-4 space-y-2">
-        <div className="text-sm text-gray-600 font-semibold">
-          Occupied: {chairs.size} / {maxCapacity} max capacity (
-          {allowedPositions.size} positions available)
-        </div>
-        <div className="flex gap-4 text-xs text-gray-600 flex-wrap justify-center">
-          <div className="flex items-center gap-1">
-            <span className="w-4 h-4 bg-green-500 border border-green-700 rounded"></span>
-            <span>Occupied</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="w-4 h-4 bg-gray-200 border border-gray-400 rounded"></span>
-            <span>Available</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="w-4 h-4 bg-yellow-100 border border-yellow-400 rounded"></span>
-            <span>Full capacity</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="w-4 h-4 bg-gray-100 border border-gray-300 rounded opacity-50"></span>
-            <span>Disabled</span>
-          </div>
-        </div>
-      </div>
       {isLoading && (
         <div className="mt-2 text-sm text-blue-600">Loading...</div>
       )}
@@ -501,11 +303,6 @@ export default function TableChairs({
             const items = chairItems.get(selectedChair) || [];
             if (!details) return null;
 
-            const totalPrice = items.reduce(
-              (sum, item) => sum + (item.price || 0) * item.quantity,
-              0,
-            );
-
             return (
               <div className="space-y-3 text-sm">
                 <div>
@@ -516,193 +313,25 @@ export default function TableChairs({
                   <span className="font-medium text-gray-700">Onslip-ID: </span>
                   <span className="text-gray-600">{details.id}</span>
                 </div>
-                {/* Items List - Horizontal Timeline */}
-                <div className="pt-2 border-t border-blue-300">
-                  <h4 className="font-semibold text-gray-800 mb-2">
-                    Items Timeline ({items.length})
-                  </h4>
-                  {items.length === 0 ? (
-                    <p className="text-gray-500 italic text-xs">
-                      No items added yet. Click a product below to add.
-                    </p>
-                  ) : (
-                    <>
-                      <ScrollArea className="w-full">
-                        <div className="flex gap-3 pb-2 mb-3">
-                          {items.map((item, index) => (
-                            <button
-                              key={index}
-                              onClick={() => handleItemClick(item)}
-                              className="shrink-0 w-32 bg-white p-3 rounded-lg border-2 border-blue-200 hover:border-blue-400 transition-all hover:shadow-md cursor-pointer relative"
-                            >
-                              <div className="text-sm font-medium text-gray-800 truncate mb-1">
-                                {item["product-name"]}
-                              </div>
-                              <div className="text-xs text-gray-600 mb-1">
-                                Qty: {item.quantity}
-                              </div>
-                              <div className="text-sm font-semibold text-gray-900">
-                                {((item.price || 0) * item.quantity).toFixed(2)}{" "}
-                                kr
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                        <ScrollBar orientation="horizontal" />
-                      </ScrollArea>
-                      <div className="flex justify-between items-center pt-2 border-t border-blue-300 font-bold text-gray-900">
-                        <span>Total:</span>
-                        <span>{totalPrice.toFixed(2)} kr</span>
-                      </div>
-                    </>
-                  )}
-                </div>
 
-                {/* Add Products Section */}
-                <div className="pt-2 border-t border-blue-300">
-                  <h4 className="font-semibold text-gray-800 mb-3">
-                    Add Products
-                  </h4>
-                  {products.length === 0 ? (
-                    <p className="text-gray-500 italic text-xs">
-                      No products available. Create products first.
-                    </p>
-                  ) : (
-                    <div className="space-y-4">
-                      {Array.from(groupProductsByGroup().entries()).map(
-                        ([groupName, groupProducts]) => {
-                          const chair = chairs.get(selectedChair);
-                          return (
-                            <div key={groupName}>
-                              <h5 className="text-sm font-semibold text-gray-700 mb-2 capitalize">
-                                {groupName.replace(/_/g, " ")}
-                              </h5>
-                              <ScrollArea className="w-full">
-                                <div className="flex gap-2 pb-1 mb-3">
-                                  {groupProducts.map((product: Product) => (
-                                    <button
-                                      key={product.id}
-                                      onClick={async () => {
-                                        if (!chair) return;
-                                        try {
-                                          setAddingProduct(product.id);
-                                          await addProductToChair(
-                                            chair.chairId,
-                                            product.id,
-                                          );
-                                          await loadChairItems(
-                                            chair.chairId,
-                                            selectedChair,
-                                          );
-                                        } catch (error) {
-                                          console.error(
-                                            "Failed to add product:",
-                                            error,
-                                          );
-                                          alert(
-                                            "Failed to add product. Please try again.",
-                                          );
-                                        } finally {
-                                          setAddingProduct(null);
-                                        }
-                                      }}
-                                      disabled={addingProduct === product.id}
-                                      className="shrink-0 w-32 p-2 bg-linear-to-br from-blue-50 to-blue-100 border border-blue-300 rounded hover:from-blue-100 hover:to-blue-200 hover:border-blue-400 transition-all text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                                      title={
-                                        product.description || product.name
-                                      }
-                                    >
-                                      <div className="flex flex-col items-start">
-                                        <span className="font-semibold text-gray-800 text-left line-clamp-1 mb-0.5">
-                                          {product.name}
-                                        </span>
-                                        <span className="text-xs font-bold text-blue-700">
-                                          {product.price?.toFixed(2) || "0.00"}{" "}
-                                          kr
-                                        </span>
-                                        {addingProduct === product.id && (
-                                          <span className="text-xs text-gray-600 mt-0.5">
-                                            Adding...
-                                          </span>
-                                        )}
-                                      </div>
-                                    </button>
-                                  ))}
-                                </div>
-                                <ScrollBar orientation="horizontal" />
-                              </ScrollArea>
-                            </div>
-                          );
-                        },
-                      )}
-                    </div>
-                  )}
-                </div>
+                <ChairItemsList items={items} onItemClick={handleItemClick} />
+
+                <ProductGroupsList
+                  products={products}
+                  onProductClick={handleProductClick}
+                  addingProductId={addingProduct}
+                />
               </div>
             );
           })()}
         </div>
       )}
 
-      {/* Item Details Dialog */}
-      <Dialog
-        open={selectedItem !== null}
-        onOpenChange={(open) => !open && setSelectedItem(null)}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Item Details</DialogTitle>
-            <DialogDescription>
-              {selectedItem?.item["product-name"]}
-            </DialogDescription>
-          </DialogHeader>
-
-          {selectedItem && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-semibold text-gray-700">
-                    Quantity
-                  </label>
-                  <p className="text-gray-900">{selectedItem.item.quantity}</p>
-                </div>
-
-                <div>
-                  <label className="text-sm font-semibold text-gray-700">
-                    Unit Price
-                  </label>
-                  <p className="text-gray-900">
-                    {(selectedItem.item.price || 0).toFixed(2)} kr
-                  </p>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-sm font-semibold text-gray-700">
-                  Total Price
-                </label>
-                <p className="text-gray-900 font-bold text-lg">
-                  {(
-                    (selectedItem.item.price || 0) * selectedItem.item.quantity
-                  ).toFixed(2)}{" "}
-                  kr
-                </p>
-              </div>
-
-              {selectedItem.productDetails?.description && (
-                <div>
-                  <label className="text-sm font-semibold text-gray-700">
-                    Description
-                  </label>
-                  <p className="text-gray-700 text-sm mt-1">
-                    {selectedItem.productDetails.description}
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      <ItemDetailsDialog
+        item={selectedItem?.item || null}
+        productDetails={selectedItem?.productDetails || null}
+        onClose={() => setSelectedItem(null)}
+      />
     </div>
   );
 }
