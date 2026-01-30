@@ -251,36 +251,49 @@ export default function TableChairs({
 
   const handleQuantityConfirm = async (quantity: number) => {
     if (selectedChair === null) return;
+    if (!dialogState.product) return;
 
     const chair = chairs.get(selectedChair);
     if (!chair) return;
 
     try {
-      setAddingProduct(dialogState.product?.id || null);
+      setAddingProduct(dialogState.product.id);
 
-      if (dialogState.mode === "add" && dialogState.product) {
-        // Adding new product with specified quantity
-        await addProductToChair(
-          chair.chairId,
-          dialogState.product.id,
-          quantity,
-        );
-      } else if (dialogState.mode === "view" && dialogState.item) {
-        // TODO: Updating existing item quantity - need to implement this
-        // For now, we'll just add the product again with the new quantity
-        if (dialogState.item.product) {
-          await addProductToChair(
-            chair.chairId,
-            dialogState.item.product,
-            quantity,
-          );
-        }
-      }
+      // Adding new product with specified quantity
+      await addProductToChair(chair.chairId, dialogState.product.id, quantity);
 
       await loadChairItems(chair.chairId, selectedChair);
+      setDialogState({ mode: "view", item: null, product: null });
     } catch (error) {
-      console.error("Failed to add/update product:", error);
-      alert("Failed to add/update product. Please try again.");
+      console.error("Failed to add product:", error);
+      alert("Failed to add product. Please try again.");
+    } finally {
+      setAddingProduct(null);
+    }
+  };
+
+  const handleAddMore = async (quantity: number) => {
+    if (selectedChair === null) return;
+    if (!dialogState.item?.product) return;
+
+    const chair = chairs.get(selectedChair);
+    if (!chair) return;
+
+    try {
+      setAddingProduct(dialogState.item.product);
+
+      // Add more of the same product
+      await addProductToChair(
+        chair.chairId,
+        dialogState.item.product,
+        quantity,
+      );
+
+      await loadChairItems(chair.chairId, selectedChair);
+      setDialogState({ mode: "view", item: null, product: null });
+    } catch (error) {
+      console.error("Failed to add more product:", error);
+      alert("Failed to add more product. Please try again.");
     } finally {
       setAddingProduct(null);
     }
@@ -360,6 +373,7 @@ export default function TableChairs({
           setDialogState({ mode: "view", item: null, product: null })
         }
         onQuantityChange={handleQuantityConfirm}
+        onAddMore={handleAddMore}
       />
     </div>
   );
