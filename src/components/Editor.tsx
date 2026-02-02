@@ -136,7 +136,7 @@ export default function Editor() {
 
         // Remove table from frontend
         setTables((prevTables) =>
-          prevTables.filter((t) => t.id !== selectedId)
+          prevTables.filter((t) => t.id !== selectedId),
         );
         setSelectedId(null);
       }
@@ -193,6 +193,7 @@ export default function Editor() {
         id,
         name: getTableName(id),
         capacity: maxCapacity,
+        minCapacity: minCapacity,
         width,
         height,
         x: pos.x,
@@ -216,6 +217,7 @@ export default function Editor() {
       id,
       name: getTableName(id),
       capacity: tableToCopy.capacity,
+      minCapacity: tableToCopy.minCapacity,
       width: tableToCopy.width,
       height: tableToCopy.height,
       x: tableToCopy.x + 30, // Offset to avoid overlap
@@ -321,6 +323,7 @@ export default function Editor() {
           currentState={selectedTable.currentState || null}
           isLocked={selectedTable.locked}
           capacity={selectedTable.capacity}
+          minCapacity={selectedTable.minCapacity}
           onToggleLock={handleToggleLock}
           onPreviousState={() => handleStateChange("prev")}
           onNextState={() => handleStateChange("next")}

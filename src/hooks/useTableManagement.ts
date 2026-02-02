@@ -76,11 +76,13 @@ export function useTableManagement(initialTables: Table[] = []) {
   };
 
   // Handle capacity change for selected table
-  const handleCapacityChange = (capacity: number) => {
+  const handleCapacityChange = (maxCapacity: number, minCapacity: number) => {
     if (!selectedId) return;
 
     setTables((prevTables) =>
-      prevTables.map((t) => (t.id === selectedId ? { ...t, capacity } : t)),
+      prevTables.map((t) =>
+        t.id === selectedId ? { ...t, capacity: maxCapacity, minCapacity } : t,
+      ),
     );
   };
 

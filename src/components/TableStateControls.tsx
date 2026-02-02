@@ -1,27 +1,43 @@
 "use client";
 
-import { Lock, Unlock, ChevronLeft, ChevronRight, Copy } from "lucide-react";
+import { useState } from "react";
+import {
+  Lock,
+  Unlock,
+  ChevronLeft,
+  ChevronRight,
+  Copy,
+  Edit,
+} from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 type Props = {
   tableName: string;
   currentState: string | null;
   isLocked?: boolean;
   capacity: number;
+  minCapacity?: number;
   onToggleLock?: () => void;
   onPreviousState: () => void;
   onNextState: () => void;
-  onCapacityChange: (capacity: number) => void;
+  onCapacityChange: (maxCapacity: number, minCapacity: number) => void;
   onCopyTable: () => void;
   isStateLoading?: boolean;
 };
-
-const CAPACITY_OPTIONS = [2, 4, 6, 8];
 
 export default function TableStateControls({
   tableName,
   currentState,
   isLocked = false,
   capacity,
+  minCapacity = 2,
   onToggleLock,
   onPreviousState,
   onNextState,
@@ -29,6 +45,36 @@ export default function TableStateControls({
   onCopyTable,
   isStateLoading = false,
 }: Props) {
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [maxCapacityInput, setMaxCapacityInput] = useState(capacity.toString());
+  const [minCapacityInput, setMinCapacityInput] = useState(
+    minCapacity.toString(),
+  );
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const maxCapacityNum = Number(maxCapacityInput);
+    const minCapacityNum = Number(minCapacityInput);
+
+    if (
+      maxCapacityNum <= 0 ||
+      minCapacityNum <= 0 ||
+      isNaN(maxCapacityNum) ||
+      isNaN(minCapacityNum)
+    ) {
+      alert("All values must be greater than 0");
+      return;
+    }
+
+    if (minCapacityNum > maxCapacityNum) {
+      alert("Min capacity cannot be greater than max capacity");
+      return;
+    }
+
+    onCapacityChange(maxCapacityNum, minCapacityNum);
+    setDialogOpen(false);
+  };
   const displayState = currentState
     ? currentState.split(":")[1]?.replace(/_/g, " ")
     : "No state";
@@ -60,25 +106,23 @@ export default function TableStateControls({
         </button>
       </div>
 
-      {/* Capacity selector */}
+      {/* Capacity editor */}
       <div className="flex items-center gap-2">
         <span className="text-xs font-semibold text-gray-600">Capacity:</span>
-        <div className="flex gap-1">
-          {CAPACITY_OPTIONS.map((cap) => (
-            <button
-              key={cap}
-              onClick={() => onCapacityChange(cap)}
-              className={`w-8 h-8 rounded-md text-sm font-medium transition-colors ${
-                capacity === cap
-                  ? "bg-blue-500 text-white"
-                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-              }`}
-              title={`Set capacity to ${cap} seats`}
-            >
-              {cap}
-            </button>
-          ))}
-        </div>
+        <span className="text-sm font-medium text-gray-700">
+          {minCapacity}-{capacity}
+        </span>
+        <button
+          onClick={() => {
+            setMaxCapacityInput(capacity.toString());
+            setMinCapacityInput(minCapacity.toString());
+            setDialogOpen(true);
+          }}
+          className="p-2 rounded-md bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors"
+          title="Edit capacity"
+        >
+          <Edit className="w-4 h-4" />
+        </button>
       </div>
 
       {/* Copy and Lock buttons */}
@@ -108,6 +152,64 @@ export default function TableStateControls({
           </button>
         )}
       </div>
+
+      {/* Edit Capacity Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Capacity</DialogTitle>
+            <DialogDescription>
+              Set the minimum and maximum capacity for {tableName}
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Min Guests
+                </label>
+                <input
+                  type="number"
+                  value={minCapacityInput}
+                  onChange={(e) => setMinCapacityInput(e.target.value)}
+                  min="1"
+                  max="20"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Max Guests
+                </label>
+                <input
+                  type="number"
+                  value={maxCapacityInput}
+                  onChange={(e) => setMaxCapacityInput(e.target.value)}
+                  min="1"
+                  max="20"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                className="bg-purple-500 hover:bg-purple-600"
+              >
+                Save
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,7 +1,8 @@
 export interface Table {
   id: number;
   name: string; // Display name e.g. "T-1"
-  capacity: number; // number of seats
+  capacity: number; // maximum number of seats
+  minCapacity?: number; // minimum number of seats
   x: number;
   y: number;
   width: number;
