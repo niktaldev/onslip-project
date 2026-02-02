@@ -119,7 +119,7 @@ export default function Editor() {
   // Handle keyboard delete
   useEffect(() => {
     const handleKeyDown = async (e: KeyboardEvent) => {
-      if ((e.key === "Delete" || e.key === "Backspace") && selectedId) {
+      if (e.key === "Delete" && selectedId) {
         e.preventDefault();
 
         // Find the table to get its orderId
