@@ -12,7 +12,7 @@ interface Item {
 
 interface ChairItemsListProps {
   items: Item[];
-  onItemClick: (item: Item, index: number) => void;
+  onItemClick?: (item: Item, index: number) => void;
 }
 
 export default function ChairItemsList({
@@ -40,8 +40,13 @@ export default function ChairItemsList({
               {items.map((item, index) => (
                 <button
                   key={index}
-                  onClick={() => onItemClick(item, index)}
-                  className="shrink-0 w-32 bg-white p-3 rounded-lg border-2 border-blue-200 hover:border-blue-400 transition-all hover:shadow-md cursor-pointer relative"
+                  onClick={() => onItemClick?.(item, index)}
+                  disabled={!onItemClick}
+                  className={`shrink-0 w-32 bg-white p-3 rounded-lg border-2 border-blue-200 transition-all relative ${
+                    onItemClick
+                      ? "hover:border-blue-400 hover:shadow-md cursor-pointer"
+                      : "cursor-default opacity-80"
+                  }`}
                 >
                   <div className="text-sm font-medium text-gray-800 truncate mb-1">
                     {item["product-name"]}

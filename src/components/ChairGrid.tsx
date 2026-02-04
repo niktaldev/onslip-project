@@ -118,6 +118,9 @@ export default function ChairGrid({
     const isAvailable = allowedPositions.has(chairData.index);
     const capacityReached = chairs.size >= maxCapacity;
 
+    // Check if chair is paid (name starts with "[PAID-")
+    const isPaid = chair?.name?.startsWith("[PAID-") || false;
+
     // Different styling based on availability and occupancy
     const baseClasses = `w-8 h-8 flex items-center justify-center border-2 rounded cursor-pointer transition-colors select-none`;
 
@@ -131,6 +134,15 @@ export default function ChairGrid({
         "bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed opacity-50";
       displayText = "–";
       titleText = "Position not available";
+    } else if (isPaid) {
+      // Paid chair - purple with checkmark
+      colorClasses = isSelected
+        ? "bg-purple-600 border-purple-800 text-white"
+        : "bg-purple-500 border-purple-700 text-white";
+      displayText = "✓";
+      titleText = chair
+        ? `${chair.name} - PAID (click to view receipt)`
+        : "Paid";
     } else if (isOccupied) {
       // Occupied position - green or blue
       colorClasses = isSelected
@@ -226,6 +238,12 @@ export default function ChairGrid({
           <div className="flex items-center gap-1">
             <span className="w-4 h-4 bg-green-500 border border-green-700 rounded"></span>
             <span>Occupied</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="w-4 h-4 bg-purple-500 border border-purple-700 rounded flex items-center justify-center text-white text-[10px]">
+              ✓
+            </span>
+            <span>Paid</span>
           </div>
           <div className="flex items-center gap-1">
             <span className="w-4 h-4 bg-gray-200 border border-gray-400 rounded"></span>

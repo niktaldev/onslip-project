@@ -10,12 +10,14 @@ import {
   getProduct,
   splitItemBetweenChairs,
   deleteItemFromChair,
+  combineTabsAndPay,
 } from "@/lib/products";
 import ChairGrid from "./ChairGrid";
 import ChairItemsList from "./ChairItemsList";
 import ProductGroupsList from "./ProductGroupsList";
 import ItemDetailsDialog from "./ItemDetailsDialog";
 import SplitItemDialog from "./SplitItemDialog";
+import CombinePayDialog from "./CombinePayDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,6 +28,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 
 interface ChairDetails {
   id: number;
@@ -101,6 +104,7 @@ export default function TableChairs({
     type: "delete" | "alreadySplit" | null;
     onConfirm?: () => void;
   }>({ isOpen: false, type: null });
+  const [combinePayDialogOpen, setCombinePayDialogOpen] = useState(false);
 
   // Use availablePositions if provided, otherwise allow all positions up to maxCapacity
   const allowedPositions = availablePositions
@@ -438,8 +442,43 @@ export default function TableChairs({
     setSplitDialogState({ item: null, sourceChairId: null, itemIndex: -1 });
   };
 
+  const handleCombinePayConfirm = async (chairIds: number[]) => {
+    try {
+      const result = await combineTabsAndPay(chairIds);
+
+      if (!result.success) {
+        alert(`Failed to combine tabs: ${result.error}`);
+        return;
+      }
+
+      // Reload chairs to reflect the changes
+      await loadExistingChairs();
+
+      // Clear selection
+      setSelectedChair(null);
+      setCombinePayDialogOpen(false);
+
+      alert("Payment processed and tabs combined successfully!");
+    } catch (error) {
+      console.error("Failed to combine tabs:", error);
+      alert("Failed to process payment. Please try again.");
+    }
+  };
+
   return (
     <div className="flex flex-col items-center justify-center w-full min-h-[300px] p-8 border border-gray-500 rounded-lg">
+      {/* Process Payment Button - show if there are any occupied chairs */}
+      {chairs.size >= 1 && (
+        <div className="mb-4 w-full flex justify-center">
+          <Button
+            onClick={() => setCombinePayDialogOpen(true)}
+            className="bg-green-600 hover:bg-green-700"
+            size="lg"
+          >
+            Process Payment
+          </Button>
+        </div>
+      )}
       <ChairGrid
         name={name}
         width={width}
@@ -479,6 +518,9 @@ export default function TableChairs({
             const items = chairItems.get(selectedChair) || [];
             if (!details) return null;
 
+            // Check if chair is paid
+            const isPaid = details.name?.startsWith("[PAID-") || false;
+
             return (
               <div className="space-y-3 text-sm">
                 <div>
@@ -490,14 +532,36 @@ export default function TableChairs({
                   <span className="text-gray-600">{details.id}</span>
                 </div>
 
-                <ChairItemsList items={items} onItemClick={handleItemClick} />
+                {isPaid && (
+                  <div className="p-3 bg-purple-100 border border-purple-300 rounded-md">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">✓</span>
+                      <div>
+                        <div className="font-semibold text-purple-800">
+                          This tab has been paid
+                        </div>
+                        <div className="text-xs text-purple-600 mt-1">
+                          Items are shown for reference only. No changes can be
+                          made.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
-                <ProductGroupsList
-                  products={products}
-                  onProductClick={handleProductClick}
-                  addingProductId={addingProduct}
-                  currentState={currentState}
+                <ChairItemsList
+                  items={items}
+                  onItemClick={isPaid ? undefined : handleItemClick}
                 />
+
+                {!isPaid && (
+                  <ProductGroupsList
+                    products={products}
+                    onProductClick={handleProductClick}
+                    addingProductId={addingProduct}
+                    currentState={currentState}
+                  />
+                )}
               </div>
             );
           })()}
@@ -569,6 +633,18 @@ export default function TableChairs({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <CombinePayDialog
+        isOpen={combinePayDialogOpen}
+        occupiedChairs={chairs}
+        tableName={name}
+        tableWidth={width}
+        tableHeight={height}
+        currentState={currentState}
+        allowedPositions={allowedPositions}
+        onClose={() => setCombinePayDialogOpen(false)}
+        onConfirm={handleCombinePayConfirm}
+      />
     </div>
   );
 }

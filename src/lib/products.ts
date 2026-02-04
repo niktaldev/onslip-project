@@ -259,3 +259,58 @@ export async function splitItemBetweenChairs(
     throw error;
   }
 }
+
+export async function combineTabsAndPay(chairIds: number[]) {
+  try {
+    if (chairIds.length < 1) {
+      throw new Error("Need at least 1 chair to process payment");
+    }
+
+    // Get all tabs
+    const tabs = await Promise.all(
+      chairIds.map(async (id) => {
+        const tab = await api.getTab(id);
+        if (!tab) {
+          throw new Error(`Chair with ID ${id} not found`);
+        }
+        return tab;
+      }),
+    );
+
+    // Find the tab with the lowest ID (will be the primary tab)
+    const sortedTabs = [...tabs].sort((a, b) => a.id - b.id);
+    const primaryTab = sortedTabs[0];
+    const tabsToMerge = sortedTabs.slice(1);
+
+    // Collect all items from all tabs
+    const allItems = tabs.flatMap((tab) => tab.items || []);
+
+    // Create a special name to track payment/combination
+    const combinedTabIds = tabsToMerge.map((tab) => tab.id);
+    const newName =
+      chairIds.length > 1
+        ? `[PAID-${chairIds.length}] ${primaryTab.name || "Combined"}`
+        : `[PAID-1] ${primaryTab.name || "Single"}`;
+
+    // Update the primary tab with all items and updated name
+    await api.updateTab(primaryTab.id, {
+      items: allItems,
+      name: newName,
+    });
+
+    // Delete the other tabs
+    await Promise.all(tabsToMerge.map((tab) => api.removeTab(tab.id)));
+
+    return {
+      success: true,
+      primaryTabId: primaryTab.id,
+      mergedTabIds: combinedTabIds,
+    };
+  } catch (error) {
+    console.error("Error combining tabs:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
