@@ -1,23 +1,19 @@
 "use client";
 
 import type { Table } from "../types/table";
-import type { Line } from "../types/line";
 
 interface CanvasState {
   version: string;
   tables: Table[];
-  lines: Line[];
 }
 
 interface ExportImportButtonsProps {
   tables: Table[];
-  lines: Line[];
   onImport: (state: CanvasState) => void;
 }
 
 export default function ExportImportButtons({
   tables,
-  lines,
   onImport,
 }: ExportImportButtonsProps) {
   // Export canvas state to JSON
@@ -25,7 +21,6 @@ export default function ExportImportButtons({
     const canvasState: CanvasState = {
       version: "1.0",
       tables,
-      lines,
     };
 
     const jsonString = JSON.stringify(canvasState, null, 2);
@@ -53,7 +48,7 @@ export default function ExportImportButtons({
         const canvasState = JSON.parse(jsonString) as CanvasState;
 
         // Validate structure
-        if (!canvasState.tables || !canvasState.lines) {
+        if (!canvasState.tables) {
           alert("Invalid canvas file format");
           return;
         }

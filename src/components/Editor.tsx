@@ -1,18 +1,15 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { Stage, Layer, Image } from "react-konva";
 import { useImage } from "react-konva-utils";
 import type { Table } from "../types/table";
-import type { Line as LineType } from "../types/line";
 import TableStateControls from "./TableStateControls";
 import StageControls from "./StageControls";
 import TableLayer from "./TableLayer";
-import LineLayer from "./LineLayer";
 import TableDialog from "./TableDialog";
 import { useStageControls } from "../hooks/useStageControls";
 import { useTableManagement } from "../hooks/useTableManagement";
-import { useLineManagement } from "../hooks/useLineManagement";
 import { useDrawingMode } from "../hooks/useDrawingMode";
 import { useTableStates } from "../hooks/useTableStates";
 import { deleteOrder } from "../lib/states";
@@ -57,42 +54,11 @@ export default function Editor() {
     handleAvailablePositionsUpdate,
   } = useTableManagement([]);
 
-  // Line management (lines, snap indicators)
-  const {
-    lines,
-    setLines,
-    snapIndicatorStartRef,
-    snapIndicatorEndRef,
-    SNAP_THRESHOLD,
-    handleLineUpdate,
-    handleSnapIndicator,
-    hideSnapIndicators,
-  } = useLineManagement();
-
-  // Separate state for line selection (lines use string IDs)
-  const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
-
-  // Wrapper to handle both table (number) and line (string) IDs
-  const handleSetSelectedId = (id: string | number | null) => {
-    if (typeof id === "number") {
-      setSelectedId(id);
-    } else if (typeof id === "string") {
-      // Lines use string IDs, but we're tracking tables separately
-      // For now, just clear selection when selecting a line
-      setSelectedId(null);
-    } else {
-      setSelectedId(null);
-    }
-  };
-
-  // Drawing mode (table/line drawing, mouse handlers)
+  // Drawing mode (table drawing, mouse handlers)
   const {
     tableDrawMode,
-    lineDrawMode,
-    previewRectRef,
-    previewLineRef,
     toggleDrawMode,
-    toggleLineDrawMode,
+    previewRectRef,
     handleStageMouseDown,
     handleStageMouseMove,
     handleStageMouseUp,
@@ -100,13 +66,7 @@ export default function Editor() {
     stageRef,
     tables,
     setTables,
-    lines,
-    setLines,
-    setSelectedId: handleSetSelectedId,
-    snapIndicatorStartRef,
-    snapIndicatorEndRef,
-    SNAP_THRESHOLD,
-    hideSnapIndicators,
+    setSelectedId,
   });
 
   // Table states (API integration)
@@ -119,7 +79,7 @@ export default function Editor() {
   // Handle keyboard delete
   useEffect(() => {
     const handleKeyDown = async (e: KeyboardEvent) => {
-      if ((e.key === "Delete" || e.key === "Backspace") && selectedId) {
+      if (e.key === "Delete" && selectedId) {
         e.preventDefault();
 
         // Find the table to get its orderId
@@ -146,15 +106,11 @@ export default function Editor() {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [selectedId, tables, lines, setTables, setLines, setSelectedId]);
+  }, [selectedId, tables, setTables, setSelectedId]);
 
   // Handle import
-  const handleImport = (canvasState: {
-    tables: Table[];
-    lines: LineType[];
-  }) => {
+  const handleImport = (canvasState: { tables: Table[] }) => {
     setTables(canvasState.tables);
-    setLines(canvasState.lines);
     setSelectedId(null);
   };
 
@@ -233,11 +189,8 @@ export default function Editor() {
     <div className="p-4">
       <StageControls
         tableDrawMode={tableDrawMode}
-        lineDrawMode={lineDrawMode}
         onToggleTableDraw={toggleDrawMode}
-        onToggleLineDraw={toggleLineDrawMode}
         tables={tables}
-        lines={lines}
         onImport={handleImport}
         selectedId={selectedId}
         onDelete={handleDelete}
@@ -256,7 +209,7 @@ export default function Editor() {
           y={stagePos.y}
           scaleX={stageScale}
           scaleY={stageScale}
-          draggable={!tableDrawMode && !lineDrawMode}
+          draggable={!tableDrawMode}
           onWheel={handleWheel}
           onDragMove={(e) => {
             const isDraggingShape = e.target !== e.target.getStage();
@@ -298,20 +251,7 @@ export default function Editor() {
             handleTransformEnd={handleTransformEnd}
             tableRefs={tableRefs}
             transformerRef={transformerRef}
-          />
-
-          {/* Lines Layer */}
-          <LineLayer
-            lines={lines}
-            selectedId={selectedLineId}
-            setSelectedId={setSelectedLineId}
-            handleLineUpdate={handleLineUpdate}
-            handleSnapIndicator={handleSnapIndicator}
-            snapIndicatorStartRef={snapIndicatorStartRef}
-            snapIndicatorEndRef={snapIndicatorEndRef}
             previewRectRef={previewRectRef}
-            previewLineRef={previewLineRef}
-            snapThreshold={SNAP_THRESHOLD}
           />
         </Stage>
       </div>

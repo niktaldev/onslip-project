@@ -1,4 +1,4 @@
-import { Layer, Transformer } from "react-konva";
+import { Layer, Transformer, Rect } from "react-konva";
 import type Konva from "konva";
 import type { Table } from "../types/table";
 import TableRect from "./TableRect";
@@ -11,6 +11,7 @@ interface TableLayerProps {
   handleTransformEnd: (id: number) => void;
   tableRefs: React.MutableRefObject<Map<number, Konva.Group>>;
   transformerRef: React.MutableRefObject<Konva.Transformer | null>;
+  previewRectRef?: React.MutableRefObject<Konva.Rect | null>;
 }
 
 export default function TableLayer({
@@ -21,6 +22,7 @@ export default function TableLayer({
   handleTransformEnd,
   tableRefs,
   transformerRef,
+  previewRectRef,
 }: TableLayerProps) {
   return (
     <Layer>
@@ -51,6 +53,17 @@ export default function TableLayer({
           }
           return newBox;
         }}
+      />
+
+      {/* Preview rectangle for table drawing */}
+      <Rect
+        ref={previewRectRef}
+        stroke="#3b82f6"
+        strokeWidth={2}
+        dash={[10, 5]}
+        fill="rgba(59, 130, 246, 0.1)"
+        listening={false}
+        visible={false}
       />
     </Layer>
   );

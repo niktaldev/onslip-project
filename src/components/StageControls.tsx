@@ -1,18 +1,13 @@
 import DrawSquareButton from "./DrawSquareButton";
-import DrawLineButton from "./DrawLineButton";
 import ExportImportButtons from "./ExportImportButtons";
 import AddTablesForm, { type TableCreationConfig } from "./AddTablesForm";
 import type { Table } from "../types/table";
-import type { Line as LineType } from "../types/line";
 
 interface StageControlsProps {
   tableDrawMode: boolean;
-  lineDrawMode: boolean;
   onToggleTableDraw: () => void;
-  onToggleLineDraw: () => void;
   tables: Table[];
-  lines: LineType[];
-  onImport: (canvasState: { tables: Table[]; lines: LineType[] }) => void;
+  onImport: (canvasState: { tables: Table[] }) => void;
   selectedId: number | null;
   onDelete: () => void;
   onAddTables: (config: TableCreationConfig) => void;
@@ -20,11 +15,8 @@ interface StageControlsProps {
 
 export default function StageControls({
   tableDrawMode,
-  lineDrawMode,
   onToggleTableDraw,
-  onToggleLineDraw,
   tables,
-  lines,
   onImport,
   selectedId,
   onDelete,
@@ -37,7 +29,6 @@ export default function StageControls({
         isDrawing={tableDrawMode}
         onToggle={onToggleTableDraw}
       />
-      <DrawLineButton isDrawing={lineDrawMode} onToggle={onToggleLineDraw} />
       <button
         onClick={onDelete}
         disabled={!selectedId}
@@ -49,7 +40,7 @@ export default function StageControls({
       <span className="ml-3 text-sm text-gray-600">
         Selected: {selectedId ?? "—"}
       </span>
-      <ExportImportButtons tables={tables} lines={lines} onImport={onImport} />
+      <ExportImportButtons tables={tables} onImport={onImport} />
     </div>
   );
 }

@@ -1,97 +1,49 @@
 import { useState, useRef } from "react";
 import type Konva from "konva";
 import type { Table } from "../types/table";
-import type { Line as LineType } from "../types/line";
 import { createTable } from "../types/table";
-import { createLine } from "../types/line";
 import { getNextTableId, getTableName } from "../lib/tableHelpers";
-import { findNearestEndpoint } from "../lib/lineHelpers";
 import { getRelativePointerPosition } from "../lib/stageHelpers";
 
 interface UseDrawingModeProps {
   stageRef: React.RefObject<Konva.Stage | null>;
   tables: Table[];
   setTables: React.Dispatch<React.SetStateAction<Table[]>>;
-  lines: LineType[];
-  setLines: React.Dispatch<React.SetStateAction<LineType[]>>;
-  setSelectedId: (id: string | null) => void;
-  snapIndicatorStartRef: React.RefObject<Konva.Circle | null>;
-  snapIndicatorEndRef: React.RefObject<Konva.Circle | null>;
-  SNAP_THRESHOLD: number;
-  hideSnapIndicators: () => void;
+  setSelectedId: React.Dispatch<React.SetStateAction<number | null>>;
 }
 
 export function useDrawingMode({
   stageRef,
   tables,
   setTables,
-  lines,
-  setLines,
   setSelectedId,
-  snapIndicatorStartRef,
-  snapIndicatorEndRef,
-  SNAP_THRESHOLD,
-  hideSnapIndicators,
 }: UseDrawingModeProps) {
   const [tableDrawMode, setTableDrawMode] = useState(false);
-  const [lineDrawMode, setLineDrawMode] = useState(false);
   const isDrawingRef = useRef(false);
   const drawStartRef = useRef<{ x: number; y: number } | null>(null);
 
-  // Preview refs
+  // Preview ref for table drawing
   const previewRectRef = useRef<Konva.Rect | null>(null);
-  const previewLineRef = useRef<Konva.Line | null>(null);
 
   // Toggle table drawing mode
   const toggleDrawMode = () => {
-    const newDrawMode = !tableDrawMode;
-    setTableDrawMode(newDrawMode);
-    if (newDrawMode) {
-      setLineDrawMode(false);
-    }
+    setTableDrawMode(!tableDrawMode);
     isDrawingRef.current = false;
     drawStartRef.current = null;
 
-    // Hide preview and snap indicators
+    // Hide preview when toggling off
     if (previewRectRef.current) {
       previewRectRef.current.visible(false);
       previewRectRef.current.getLayer()?.batchDraw();
     }
-    if (previewLineRef.current) {
-      previewLineRef.current.visible(false);
-      previewLineRef.current.getLayer()?.batchDraw();
-    }
-    hideSnapIndicators();
-  };
-
-  // Toggle line drawing mode
-  const toggleLineDrawMode = () => {
-    const newLineDrawMode = !lineDrawMode;
-    setLineDrawMode(newLineDrawMode);
-    if (newLineDrawMode) {
-      setTableDrawMode(false);
-    }
-    isDrawingRef.current = false;
-    drawStartRef.current = null;
-
-    // Hide preview and snap indicators
-    if (previewRectRef.current) {
-      previewRectRef.current.visible(false);
-      previewRectRef.current.getLayer()?.batchDraw();
-    }
-    if (previewLineRef.current) {
-      previewLineRef.current.visible(false);
-      previewLineRef.current.getLayer()?.batchDraw();
-    }
-    hideSnapIndicators();
   };
 
   // Handle stage mouse down
   const handleStageMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
     const clickedOnEmpty = e.target === e.target.getStage();
 
-    // Check if we're in a drawing mode
-    if (!tableDrawMode && !lineDrawMode) {
+    // Check if we're in drawing mode
+    if (!tableDrawMode) {
       if (!clickedOnEmpty) {
         return;
       }
@@ -117,201 +69,83 @@ export function useDrawingMode({
     if (!pointer) return;
 
     isDrawingRef.current = true;
-
-    // For line mode, snap to nearest endpoint
-    let startPoint = { x: pointer.x, y: pointer.y };
-    if (lineDrawMode) {
-      const snapPoint = findNearestEndpoint(
-        pointer.x,
-        pointer.y,
-        lines,
-        SNAP_THRESHOLD
-      );
-      if (snapPoint) {
-        startPoint = snapPoint;
-        if (snapIndicatorStartRef.current) {
-          snapIndicatorStartRef.current.setAttrs({
-            x: snapPoint.x,
-            y: snapPoint.y,
-            visible: true,
-          });
-          snapIndicatorStartRef.current.getLayer()?.batchDraw();
-        }
-      }
-    }
-
-    drawStartRef.current = startPoint;
-
-    if (tableDrawMode && previewRectRef.current) {
-      previewRectRef.current.setAttrs({
-        x: pointer.x,
-        y: pointer.y,
-        width: 0,
-        height: 0,
-        visible: true,
-      });
-      previewRectRef.current.getLayer()?.batchDraw();
-    }
-
-    if (lineDrawMode && previewLineRef.current) {
-      previewLineRef.current.setAttrs({
-        points: [startPoint.x, startPoint.y, startPoint.x, startPoint.y],
-        visible: true,
-      });
-      previewLineRef.current.getLayer()?.batchDraw();
-    }
+    drawStartRef.current = { x: pointer.x, y: pointer.y };
+    setSelectedId(null);
   };
 
   // Handle stage mouse move
   const handleStageMouseMove = () => {
-    if ((!tableDrawMode && !lineDrawMode) || !isDrawingRef.current) return;
+    if (!tableDrawMode || !isDrawingRef.current || !drawStartRef.current)
+      return;
 
     const stage = stageRef.current;
     if (!stage) return;
 
     const pointer = getRelativePointerPosition(stage);
-    if (!pointer || !drawStartRef.current) return;
+    if (!pointer) return;
 
-    if (tableDrawMode) {
-      const startX = drawStartRef.current.x;
-      const startY = drawStartRef.current.y;
-      const x = Math.min(startX, pointer.x);
-      const y = Math.min(startY, pointer.y);
-      const width = Math.max(1, Math.abs(pointer.x - startX));
-      const height = Math.max(1, Math.abs(pointer.y - startY));
+    // Update preview rectangle
+    if (previewRectRef.current) {
+      const start = drawStartRef.current;
+      const width = pointer.x - start.x;
+      const height = pointer.y - start.y;
 
-      if (previewRectRef.current) {
-        previewRectRef.current.setAttrs({
-          x,
-          y,
-          width,
-          height,
-          visible: true,
-        });
-        previewRectRef.current.getLayer()?.batchDraw();
-      }
-    }
-
-    if (lineDrawMode) {
-      const startX = drawStartRef.current.x;
-      const startY = drawStartRef.current.y;
-
-      // Check for snap to endpoint
-      let endPoint = { x: pointer.x, y: pointer.y };
-      const snapPoint = findNearestEndpoint(
-        pointer.x,
-        pointer.y,
-        lines,
-        SNAP_THRESHOLD
-      );
-
-      if (snapPoint) {
-        endPoint = snapPoint;
-        if (snapIndicatorEndRef.current) {
-          snapIndicatorEndRef.current.setAttrs({
-            x: snapPoint.x,
-            y: snapPoint.y,
-            visible: true,
-          });
-          snapIndicatorEndRef.current.getLayer()?.batchDraw();
-        }
-      } else {
-        if (snapIndicatorEndRef.current) {
-          snapIndicatorEndRef.current.visible(false);
-          snapIndicatorEndRef.current.getLayer()?.batchDraw();
-        }
-      }
-
-      if (previewLineRef.current) {
-        previewLineRef.current.setAttrs({
-          points: [startX, startY, endPoint.x, endPoint.y],
-          visible: true,
-        });
-        previewLineRef.current.getLayer()?.batchDraw();
-      }
+      previewRectRef.current.setAttrs({
+        x: width > 0 ? start.x : pointer.x,
+        y: height > 0 ? start.y : pointer.y,
+        width: Math.abs(width),
+        height: Math.abs(height),
+        visible: true,
+      });
+      previewRectRef.current.getLayer()?.batchDraw();
     }
   };
 
   // Handle stage mouse up
   const handleStageMouseUp = () => {
-    if ((!tableDrawMode && !lineDrawMode) || !isDrawingRef.current) return;
-    isDrawingRef.current = false;
+    if (!tableDrawMode || !isDrawingRef.current || !drawStartRef.current)
+      return;
 
-    if (tableDrawMode) {
-      const previewRect = previewRectRef.current;
-      if (!previewRect) return;
+    const stage = stageRef.current;
+    if (!stage) return;
 
-      const width = previewRect.width();
-      const height = previewRect.height();
-      const x = previewRect.x();
-      const y = previewRect.y();
+    const pointer = getRelativePointerPosition(stage);
+    if (!pointer) return;
 
-      if (width < 4 || height < 4) {
-        previewRect.visible(false);
-        previewRect.getLayer()?.batchDraw();
-        return;
-      }
+    const start = drawStartRef.current;
+    const width = Math.round(Math.abs(pointer.x - start.x));
+    const height = Math.round(Math.abs(pointer.y - start.y));
 
+    // Only create table if it has meaningful dimensions
+    if (width > 10 && height > 10) {
       const id = getNextTableId(tables);
-      const name = getTableName(id);
       const newTable = createTable({
         id,
-        name,
-        x: Math.round(x),
-        y: Math.round(y),
-        width: Math.round(width),
-        height: Math.round(height),
-        capacity: 4,
+        name: getTableName(id),
+        x: Math.round(Math.min(start.x, pointer.x)),
+        y: Math.round(Math.min(start.y, pointer.y)),
+        width,
+        height,
       });
-      setTables((prevTables) => [...prevTables, newTable]);
 
-      previewRect.visible(false);
-      previewRect.getLayer()?.batchDraw();
+      setTables((prev) => [...prev, newTable]);
+      setSelectedId(id);
     }
 
-    if (lineDrawMode) {
-      const previewLine = previewLineRef.current;
-      if (!previewLine || !drawStartRef.current) return;
+    isDrawingRef.current = false;
+    drawStartRef.current = null;
 
-      const points = previewLine.points();
-      if (points.length < 4) {
-        previewLine.visible(false);
-        previewLine.getLayer()?.batchDraw();
-        hideSnapIndicators();
-        return;
-      }
-
-      // Check minimum line length
-      const dx = points[2] - points[0];
-      const dy = points[3] - points[1];
-      const length = Math.sqrt(dx * dx + dy * dy);
-
-      if (length < 10) {
-        previewLine.visible(false);
-        previewLine.getLayer()?.batchDraw();
-        hideSnapIndicators();
-        return;
-      }
-
-      const newLine = createLine({
-        id: `line-${Date.now()}`,
-        points: points.map(Math.round),
-      });
-      setLines((prevLines) => [...prevLines, newLine]);
-
-      previewLine.visible(false);
-      previewLine.getLayer()?.batchDraw();
-      hideSnapIndicators();
+    // Hide preview rectangle
+    if (previewRectRef.current) {
+      previewRectRef.current.visible(false);
+      previewRectRef.current.getLayer()?.batchDraw();
     }
   };
 
   return {
     tableDrawMode,
-    lineDrawMode,
-    previewRectRef,
-    previewLineRef,
     toggleDrawMode,
-    toggleLineDrawMode,
+    previewRectRef,
     handleStageMouseDown,
     handleStageMouseMove,
     handleStageMouseUp,
