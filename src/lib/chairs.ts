@@ -161,3 +161,28 @@ export async function getTableChairs(tableId: number) {
     return [];
   }
 }
+
+export async function restartTable(orderId: number) {
+  try {
+    // Get all chairs/tabs for this table
+    const chairs = await getTableChairs(orderId);
+
+    // Delete all tabs (chairs)
+    await Promise.all(
+      chairs.map((chair: { id: number }) => api.removeTab(chair.id)),
+    );
+
+    console.log(`Removed ${chairs.length} chairs from table order ${orderId}`);
+
+    return {
+      success: true,
+      removedChairs: chairs.length,
+    };
+  } catch (error) {
+    console.error(`Failed to restart table ${orderId}:`, error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}

@@ -1,7 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createChair, getChair, getTableChairs } from "@/lib/chairs";
+import {
+  createChair,
+  getChair,
+  getTableChairs,
+  restartTable,
+} from "@/lib/chairs";
 import type { Chair } from "@/types/table";
 import {
   getChairItems,
@@ -105,6 +110,7 @@ export default function TableChairs({
     onConfirm?: () => void;
   }>({ isOpen: false, type: null });
   const [combinePayDialogOpen, setCombinePayDialogOpen] = useState(false);
+  const [showRestartConfirm, setShowRestartConfirm] = useState(false);
 
   // Use availablePositions if provided, otherwise allow all positions up to maxCapacity
   const allowedPositions = availablePositions
@@ -465,18 +471,64 @@ export default function TableChairs({
     }
   };
 
+  // Check if all existing chairs (not empty positions) are paid
+  const allChairsPaid = () => {
+    // chairs Map only contains occupied positions with actual chairs
+    if (chairs.size === 0) return false;
+
+    // Check if every chair in the Map has [PAID-] prefix in its name
+    return Array.from(chairs.values()).every((chair) => {
+      return chair.name?.startsWith("[PAID-") || false;
+    });
+  };
+
+  const handleRestartTable = async () => {
+    if (!orderId) return;
+
+    try {
+      const result = await restartTable(orderId);
+
+      if (!result.success) {
+        alert(`Failed to restart table: ${result.error}`);
+        return;
+      }
+
+      // Reload chairs to show empty table
+      await loadExistingChairs();
+      setSelectedChair(null);
+      setShowRestartConfirm(false);
+
+      alert(
+        `Table restarted successfully! ${result.removedChairs} chairs removed.`,
+      );
+    } catch (error) {
+      console.error("Failed to restart table:", error);
+      alert("Failed to restart table. Please try again.");
+    }
+  };
+
   return (
     <div className="flex flex-col items-center justify-center w-full min-h-[300px] p-8 border border-gray-500 rounded-lg">
-      {/* Process Payment Button - show if there are any occupied chairs */}
+      {/* Show Restart Table button if all chairs are paid, otherwise show Process Payment */}
       {chairs.size >= 1 && (
         <div className="mb-4 w-full flex justify-center">
-          <Button
-            onClick={() => setCombinePayDialogOpen(true)}
-            className="bg-green-600 hover:bg-green-700"
-            size="lg"
-          >
-            Process Payment
-          </Button>
+          {allChairsPaid() ? (
+            <Button
+              onClick={() => setShowRestartConfirm(true)}
+              className="bg-blue-600 hover:bg-blue-700"
+              size="lg"
+            >
+              Restart Table
+            </Button>
+          ) : (
+            <Button
+              onClick={() => setCombinePayDialogOpen(true)}
+              className="bg-green-600 hover:bg-green-700"
+              size="lg"
+            >
+              Process Payment
+            </Button>
+          )}
         </div>
       )}
       <ChairGrid
@@ -645,6 +697,34 @@ export default function TableChairs({
         onClose={() => setCombinePayDialogOpen(false)}
         onConfirm={handleCombinePayConfirm}
       />
+
+      {/* Restart Table Confirmation */}
+      <AlertDialog
+        open={showRestartConfirm}
+        onOpenChange={setShowRestartConfirm}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Restart Table?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove all paid chairs and prepare the table for new
+              guests. All payment history will be cleared from this table. This
+              action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowRestartConfirm(false)}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleRestartTable}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              Restart Table
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
