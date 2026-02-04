@@ -464,11 +464,7 @@ export default function TableChairs({
       setSelectedChair(null);
       setCombinePayDialogOpen(false);
 
-      const message =
-        chairIds.length > 1
-          ? `Payment processed! All ${chairIds.length} chairs have been marked as paid and will remain visible.`
-          : "Payment processed successfully!";
-      alert(message);
+      alert("Payment processed successfully!");
     } catch (error) {
       console.error("Failed to combine tabs:", error);
       alert("Failed to process payment. Please try again.");
