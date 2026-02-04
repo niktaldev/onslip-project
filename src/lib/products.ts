@@ -277,34 +277,35 @@ export async function combineTabsAndPay(chairIds: number[]) {
       }),
     );
 
-    // Find the tab with the lowest ID (will be the primary tab)
-    const sortedTabs = [...tabs].sort((a, b) => a.id - b.id);
-    const primaryTab = sortedTabs[0];
-    const tabsToMerge = sortedTabs.slice(1);
-
     // Collect all items from all tabs
     const allItems = tabs.flatMap((tab) => tab.items || []);
 
     // Create a special name to track payment/combination
-    const combinedTabIds = tabsToMerge.map((tab) => tab.id);
-    const newName =
-      chairIds.length > 1
-        ? `[PAID-${chairIds.length}] ${primaryTab.name || "Combined"}`
-        : `[PAID-1] ${primaryTab.name || "Single"}`;
+    // Each chair gets numbered in the group (e.g., [PAID-1/3], [PAID-2/3], [PAID-3/3])
+    const totalChairs = chairIds.length;
 
-    // Update the primary tab with all items and updated name
-    await api.updateTab(primaryTab.id, {
-      items: allItems,
-      name: newName,
-    });
+    // Update ALL tabs with the combined items and mark them as paid
+    // This keeps all chairs visible while showing the same combined receipt
+    await Promise.all(
+      tabs.map((tab, index) => {
+        const chairNumber = index + 1;
+        const newName =
+          totalChairs > 1
+            ? `[PAID-${chairNumber}/${totalChairs}] ${tab.name || `Chair ${chairNumber}`}`
+            : `[PAID-1] ${tab.name || "Single"}`;
 
-    // Delete the other tabs
-    await Promise.all(tabsToMerge.map((tab) => api.removeTab(tab.id)));
+        return api.updateTab(tab.id, {
+          items: allItems,
+          name: newName,
+        });
+      }),
+    );
 
     return {
       success: true,
-      primaryTabId: primaryTab.id,
-      mergedTabIds: combinedTabIds,
+      primaryTabId: tabs[0].id,
+      mergedTabIds: tabs.slice(1).map((tab) => tab.id),
+      allPaidTabIds: tabs.map((tab) => tab.id),
     };
   } catch (error) {
     console.error("Error combining tabs:", error);

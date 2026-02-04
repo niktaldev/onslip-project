@@ -23,7 +23,6 @@ export interface Chair {
   name?: string; // Chair name
 }
 
-// Import this function from tableHelpers
 import { calculateMaxChairPositions } from "../lib/tableHelpers";
 
 export function createTable(opts?: Partial<Table>): Table {
