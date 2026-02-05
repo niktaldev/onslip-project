@@ -72,6 +72,7 @@ interface TableChairsProps {
   currentState?: string;
   locked?: boolean;
   availablePositions?: number[];
+  onOrderIdChange?: (newOrderId: number) => void;
 }
 
 export default function TableChairs({
@@ -82,6 +83,7 @@ export default function TableChairs({
   orderId,
   currentState,
   availablePositions,
+  onOrderIdChange,
 }: TableChairsProps) {
   const [chairs, setChairs] = useState<Map<number, Chair>>(new Map());
   const [chairDetails, setChairDetails] = useState<Map<number, ChairDetails>>(
@@ -595,7 +597,7 @@ export default function TableChairs({
     if (!orderId) return;
 
     try {
-      const result = await restartTable(orderId);
+      const result = await restartTable(orderId, name);
 
       if (!result.success) {
         showAlert(
@@ -606,6 +608,11 @@ export default function TableChairs({
         return;
       }
 
+      // Update the table with the new orderId
+      if (result.newOrderId && onOrderIdChange) {
+        onOrderIdChange(result.newOrderId);
+      }
+
       // Reload chairs to show empty table
       await loadExistingChairs();
       setSelectedChair(null);
@@ -614,7 +621,7 @@ export default function TableChairs({
       showAlert(
         "success",
         "Table Restarted",
-        `Table restarted successfully! ${result.removedChairs} chairs removed.`,
+        `Table restarted successfully! ${result.removedChairs} chairs removed. New order created.`,
       );
     } catch (error) {
       console.error("Failed to restart table:", error);

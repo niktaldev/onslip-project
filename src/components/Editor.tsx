@@ -282,6 +282,17 @@ export default function Editor() {
         onNextState={() => handleStateChange("next")}
         isLoading={isStateLoading}
         onUpdateAvailablePositions={handleAvailablePositionsUpdate}
+        onOrderIdChange={(newOrderId) => {
+          if (selectedId) {
+            setTables((prevTables) =>
+              prevTables.map((t) =>
+                t.id === selectedId
+                  ? { ...t, orderId: newOrderId, currentState: "null" }
+                  : t,
+              ),
+            );
+          }
+        }}
       />
     </div>
   );
