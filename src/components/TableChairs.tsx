@@ -6,6 +6,7 @@ import {
   getChair,
   getTableChairs,
   restartTable,
+  deleteChair,
 } from "@/lib/chairs";
 import type { Chair } from "@/types/table";
 import {
@@ -33,7 +34,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { AlertCircle, CheckCircle2, XCircle, Trash2 } from "lucide-react";
 
 interface ChairDetails {
   id: number;
@@ -69,6 +72,7 @@ interface TableChairsProps {
   currentState?: string;
   locked?: boolean;
   availablePositions?: number[];
+  onOrderIdChange?: (newOrderId: number) => void;
 }
 
 export default function TableChairs({
@@ -79,6 +83,7 @@ export default function TableChairs({
   orderId,
   currentState,
   availablePositions,
+  onOrderIdChange,
 }: TableChairsProps) {
   const [chairs, setChairs] = useState<Map<number, Chair>>(new Map());
   const [chairDetails, setChairDetails] = useState<Map<number, ChairDetails>>(
@@ -111,6 +116,32 @@ export default function TableChairs({
   }>({ isOpen: false, type: null });
   const [combinePayDialogOpen, setCombinePayDialogOpen] = useState(false);
   const [showRestartConfirm, setShowRestartConfirm] = useState(false);
+  const [showDeleteChairConfirm, setShowDeleteChairConfirm] = useState(false);
+  const [chairToDelete, setChairToDelete] = useState<number | null>(null);
+  const [alertState, setAlertState] = useState<{
+    show: boolean;
+    type: "success" | "error" | "info";
+    title: string;
+    message: string;
+  } | null>(null);
+
+  // Auto-dismiss alerts after 5 seconds
+  useEffect(() => {
+    if (alertState?.show) {
+      const timer = setTimeout(() => {
+        setAlertState(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [alertState]);
+
+  const showAlert = (
+    type: "success" | "error" | "info",
+    title: string,
+    message: string,
+  ) => {
+    setAlertState({ show: true, type, title, message });
+  };
 
   // Use availablePositions if provided, otherwise allow all positions up to maxCapacity
   const allowedPositions = availablePositions
@@ -228,13 +259,21 @@ export default function TableChairs({
 
   const handleChairClick = async (position: number) => {
     if (!orderId) {
-      alert("Table must have an orderId to manage chairs");
+      showAlert(
+        "error",
+        "Error",
+        "Table must have an orderId to manage chairs",
+      );
       return;
     }
 
     // Check if this position is allowed
     if (!allowedPositions.has(position)) {
-      alert("This chair position is not available for this table");
+      showAlert(
+        "error",
+        "Position Unavailable",
+        "This chair position is not available for this table",
+      );
       return;
     }
 
@@ -255,7 +294,11 @@ export default function TableChairs({
         const details = await getChair(existingChair.chairId);
 
         if (!details) {
-          alert("Chair not found. It may have been deleted.");
+          showAlert(
+            "error",
+            "Chair Not Found",
+            "Chair not found. It may have been deleted.",
+          );
           await loadExistingChairs();
           return;
         }
@@ -274,7 +317,9 @@ export default function TableChairs({
       } else {
         // Check if we've reached max capacity before creating new chair
         if (chairs.size >= maxCapacity) {
-          alert(
+          showAlert(
+            "error",
+            "Capacity Reached",
             `Maximum capacity reached (${maxCapacity} chairs). Remove an existing chair to add a new one.`,
           );
           return;
@@ -289,7 +334,11 @@ export default function TableChairs({
       }
     } catch (error) {
       console.error("Failed to handle chair click:", error);
-      alert("Failed to handle chair action. Please try again.");
+      showAlert(
+        "error",
+        "Error",
+        "Failed to handle chair action. Please try again.",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -316,7 +365,7 @@ export default function TableChairs({
       setDialogState({ mode: "view", item: null, product: null });
     } catch (error) {
       console.error("Failed to add product:", error);
-      alert("Failed to add product. Please try again.");
+      showAlert("error", "Error", "Failed to add product. Please try again.");
     } finally {
       setAddingProduct(null);
     }
@@ -343,7 +392,11 @@ export default function TableChairs({
       setDialogState({ mode: "view", item: null, product: null });
     } catch (error) {
       console.error("Failed to add more product:", error);
-      alert("Failed to add more product. Please try again.");
+      showAlert(
+        "error",
+        "Error",
+        "Failed to add more product. Please try again.",
+      );
     } finally {
       setAddingProduct(null);
     }
@@ -375,7 +428,11 @@ export default function TableChairs({
           setItemContext({ item: null, sourceChairId: null, itemIndex: -1 });
         } catch (error) {
           console.error("Failed to delete item:", error);
-          alert("Failed to delete item. Please try again.");
+          showAlert(
+            "error",
+            "Error",
+            "Failed to delete item. Please try again.",
+          );
         }
       },
     });
@@ -440,7 +497,7 @@ export default function TableChairs({
       setSplitDialogState({ item: null, sourceChairId: null, itemIndex: -1 });
     } catch (error) {
       console.error("Failed to split item:", error);
-      alert("Failed to split item. Please try again.");
+      showAlert("error", "Error", "Failed to split item. Please try again.");
     }
   };
 
@@ -453,7 +510,11 @@ export default function TableChairs({
       const result = await combineTabsAndPay(chairIds);
 
       if (!result.success) {
-        alert(`Failed to combine tabs: ${result.error}`);
+        showAlert(
+          "error",
+          "Payment Failed",
+          `Failed to combine tabs: ${result.error}`,
+        );
         return;
       }
 
@@ -464,10 +525,18 @@ export default function TableChairs({
       setSelectedChair(null);
       setCombinePayDialogOpen(false);
 
-      alert("Payment processed successfully!");
+      showAlert(
+        "success",
+        "Payment Successful",
+        "Payment processed successfully!",
+      );
     } catch (error) {
       console.error("Failed to combine tabs:", error);
-      alert("Failed to process payment. Please try again.");
+      showAlert(
+        "error",
+        "Error",
+        "Failed to process payment. Please try again.",
+      );
     }
   };
 
@@ -482,15 +551,66 @@ export default function TableChairs({
     });
   };
 
+  const handleDeleteChair = async () => {
+    if (chairToDelete === null || !orderId) return;
+
+    setShowDeleteChairConfirm(false);
+
+    try {
+      const result = await deleteChair(chairToDelete, orderId);
+
+      if (!result.success) {
+        showAlert(
+          "error",
+          "Delete Failed",
+          `Failed to delete chair: ${result.error}`,
+        );
+        return;
+      }
+
+      // Close the chair details panel if it was open
+      const deletedChairPosition = Array.from(chairs.entries()).find(
+        ([, chair]) => chair.chairId === chairToDelete,
+      )?.[0];
+
+      if (selectedChair === deletedChairPosition) {
+        setSelectedChair(null);
+      }
+
+      // Reload the chairs
+      await loadExistingChairs();
+
+      showAlert(
+        "success",
+        "Chair Deleted",
+        "Chair and all its items have been deleted successfully.",
+      );
+    } catch (error) {
+      console.error("Failed to delete chair:", error);
+      showAlert("error", "Error", "Failed to delete chair. Please try again.");
+    } finally {
+      setChairToDelete(null);
+    }
+  };
+
   const handleRestartTable = async () => {
     if (!orderId) return;
 
     try {
-      const result = await restartTable(orderId);
+      const result = await restartTable(orderId, name);
 
       if (!result.success) {
-        alert(`Failed to restart table: ${result.error}`);
+        showAlert(
+          "error",
+          "Restart Failed",
+          `Failed to restart table: ${result.error}`,
+        );
         return;
+      }
+
+      // Update the table with the new orderId
+      if (result.newOrderId && onOrderIdChange) {
+        onOrderIdChange(result.newOrderId);
       }
 
       // Reload chairs to show empty table
@@ -498,17 +618,37 @@ export default function TableChairs({
       setSelectedChair(null);
       setShowRestartConfirm(false);
 
-      alert(
-        `Table restarted successfully! ${result.removedChairs} chairs removed.`,
+      showAlert(
+        "success",
+        "Table Restarted",
+        `Table restarted successfully! ${result.removedChairs} chairs removed. New order created.`,
       );
     } catch (error) {
       console.error("Failed to restart table:", error);
-      alert("Failed to restart table. Please try again.");
+      showAlert("error", "Error", "Failed to restart table. Please try again.");
     }
   };
 
   return (
     <div className="flex flex-col items-center justify-center w-full min-h-[300px] p-8 border border-gray-500 rounded-lg">
+      {/* Alert Display - Fixed at top of screen */}
+      {alertState?.show && (
+        <div className="fixed top-1 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-lg px-4">
+          <Alert
+            variant={alertState.type === "error" ? "destructive" : "default"}
+            className="shadow-lg"
+          >
+            {alertState.type === "success" && (
+              <CheckCircle2 className="h-4 w-4" />
+            )}
+            {alertState.type === "error" && <XCircle className="h-4 w-4" />}
+            {alertState.type === "info" && <AlertCircle className="h-4 w-4" />}
+            <AlertTitle>{alertState.title}</AlertTitle>
+            <AlertDescription>{alertState.message}</AlertDescription>
+          </Alert>
+        </div>
+      )}
+
       {/* Show Restart Table button if all chairs are paid, otherwise show Process Payment */}
       {chairs.size >= 1 && (
         <div className="mb-4 w-full flex justify-center">
@@ -614,6 +754,23 @@ export default function TableChairs({
                     currentState={currentState}
                   />
                 )}
+
+                {/* Delete Chair Button */}
+                <div className="pt-4 border-t border-gray-300 mt-4">
+                  <button
+                    onClick={() => {
+                      const chair = chairs.get(selectedChair!);
+                      if (chair) {
+                        setChairToDelete(chair.chairId);
+                        setShowDeleteChairConfirm(true);
+                      }
+                    }}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Delete Chair
+                  </button>
+                </div>
               </div>
             );
           })()}
@@ -721,6 +878,33 @@ export default function TableChairs({
               className="bg-blue-600 hover:bg-blue-700"
             >
               Restart Table
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Chair Confirmation */}
+      <AlertDialog
+        open={showDeleteChairConfirm}
+        onOpenChange={setShowDeleteChairConfirm}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Chair?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this chair and all its items. This
+              action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setChairToDelete(null)}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteChair}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete Chair
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

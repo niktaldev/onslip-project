@@ -1,36 +1,51 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Onslip Restaurant Table Management
+
+A modern web application for managing restaurant floor plans, table layouts, and guest payments. Built with Next.js and integrated with Onslip 360 POS system.
+
+## Features
+
+- **Visual Table Editor**: Drag-and-drop interface for creating and arranging tables on a floor plan
+- **Chair Management**: Add, remove, and manage individual seats at tables with position-based placement
+- **Payment Processing**: Split bills between chairs or combine multiple tabs for group payments
+- **Table States**: Track table status through different states (available, seated, dining, etc.)
+- **Order Management**: Add products to individual chairs and manage items per guest
+- **Import/Export**: Save and load floor plan configurations as JSON
+- **Capacity Control**: Set minimum and maximum guest capacity for each table
+
+## Tech Stack
+
+- **Framework**: Next.js 16 with React 19
+- **Language**: TypeScript
+- **UI Components**: shadcn/ui with Radix UI primitives
+- **Styling**: Tailwind CSS
+- **Canvas**: Konva.js for interactive table layout
+- **API**: Onslip 360 Node.js API client
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
+# Install dependencies
+npm install
+
+# Run development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+
+# Build for production
+npm run build
+npm start
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to view the application.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Configuration
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Configure your Onslip 360 API credentials in the environment or through the Onslip client configuration.
 
-## Learn More
+## Development
 
-To learn more about Next.js, take a look at the following resources:
+The application uses Next.js App Router with server actions for API integration. Key directories:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `/src/app` - Application pages and routing
+- `/src/components` - React components
+- `/src/lib` - Server actions and utility functions
+- `/src/types` - TypeScript type definitions

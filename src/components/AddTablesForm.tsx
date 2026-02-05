@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -30,6 +32,7 @@ export default function AddTablesForm({ onAddTables }: AddTablesFormProps) {
   const [maxCapacity, setMaxCapacity] = useState("4");
   const [minCapacity, setMinCapacity] = useState("2");
   const [count, setCount] = useState("1");
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,12 +57,12 @@ export default function AddTablesForm({ onAddTables }: AddTablesFormProps) {
       isNaN(minCapacityNum) ||
       isNaN(countNum)
     ) {
-      alert("All values must be greater than 0");
+      setValidationError("All values must be greater than 0");
       return;
     }
 
     if (minCapacityNum > maxCapacityNum) {
-      alert("Min capacity cannot be greater than max capacity");
+      setValidationError("Min capacity cannot be greater than max capacity");
       return;
     }
 
@@ -72,6 +75,7 @@ export default function AddTablesForm({ onAddTables }: AddTablesFormProps) {
     });
 
     // Reset form and close
+    setValidationError(null);
     setWidth("120");
     setHeight("80");
     setMaxCapacity("4");
@@ -94,6 +98,14 @@ export default function AddTablesForm({ onAddTables }: AddTablesFormProps) {
             Create multiple tables with the same specifications
           </DialogDescription>
         </DialogHeader>
+
+        {validationError && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{validationError}</AlertDescription>
+          </Alert>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>

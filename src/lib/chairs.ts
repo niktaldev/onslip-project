@@ -1,6 +1,7 @@
 "use server";
 
 import { api } from "./onslipClient";
+import { createOrder, getLocations } from "./states";
 
 /* Please not that chairs are handled as tabs in Onslip 360, 
   plus any labeles required to implement the extra functionality
@@ -162,24 +163,85 @@ export async function getTableChairs(tableId: number) {
   }
 }
 
-export async function restartTable(orderId: number) {
+export async function deleteChair(chairId: number, tableId: number) {
   try {
-    // Get all chairs/tabs for this table
-    const chairs = await getTableChairs(orderId);
+    console.log(`Starting deletion of chair ${chairId} from table ${tableId}`);
 
-    // Delete all tabs (chairs)
+    // First, delete the tab (chair) - this automatically deletes all items
+    await api.removeTab(chairId);
+    console.log(`Successfully deleted tab ${chairId}`);
+
+    // Then remove the chair from the table's resources array
+    const table = await api.getOrder(tableId);
+    if (!table) {
+      // Tab is already deleted, so just log warning
+      console.warn(`Table with ID ${tableId} not found, but tab was deleted`);
+      return { success: true };
+    }
+
+    const updatedResources = (table.resources || []).filter(
+      (resourceId) => resourceId !== chairId,
+    );
+
+    await api.updateOrder(tableId, {
+      resources: updatedResources,
+    });
+    console.log(
+      `Successfully removed chair ${chairId} from table ${tableId} resources`,
+    );
+
+    return {
+      success: true,
+    };
+  } catch (error) {
+    console.error(`Failed to delete chair ${chairId}:`, error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+export async function restartTable(oldOrderId: number, tableName: string) {
+  try {
+    console.log(`Starting restart for table with order ${oldOrderId}`);
+
+    // Get all chairs/tabs for the old order
+    const chairs = await getTableChairs(oldOrderId);
+
+    // Delete all tabs (chairs) from the old order
     await Promise.all(
       chairs.map((chair: { id: number }) => api.removeTab(chair.id)),
     );
 
-    console.log(`Removed ${chairs.length} chairs from table order ${orderId}`);
+    console.log(`Removed ${chairs.length} chairs from old order ${oldOrderId}`);
+
+    // Get the location ID (using the standard table-states location)
+    const locations = await getLocations();
+    let locationId = locations.find(
+      (loc) => loc.name === "table-states-location",
+    )?.id;
+
+    if (!locationId) {
+      // Create location if it doesn't exist
+      const location = await api.addLocation({
+        name: "table-states-location",
+      });
+      locationId = location.id;
+    }
+
+    // Create a new order for the table
+    const newOrderId = await createOrder(tableName, locationId);
+
+    console.log(`Created new order ${newOrderId} for table ${tableName}`);
 
     return {
       success: true,
       removedChairs: chairs.length,
+      newOrderId,
     };
   } catch (error) {
-    console.error(`Failed to restart table ${orderId}:`, error);
+    console.error(`Failed to restart table with order ${oldOrderId}:`, error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",

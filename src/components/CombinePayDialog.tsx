@@ -226,10 +226,7 @@ export default function CombinePayDialog({
   };
 
   const handlePayClick = () => {
-    if (selectedChairs.size < 1) {
-      alert("Please select at least 1 chair to process payment");
-      return;
-    }
+    // Button is already disabled if selectedChairs.size < 1
     setShowConfirmAlert(true);
   };
 

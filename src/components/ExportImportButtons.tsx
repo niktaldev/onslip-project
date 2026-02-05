@@ -1,6 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import type { Table } from "../types/table";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 
 interface CanvasState {
   version: string;
@@ -16,6 +19,8 @@ export default function ExportImportButtons({
   tables,
   onImport,
 }: ExportImportButtonsProps) {
+  const [importError, setImportError] = useState<string | null>(null);
+
   // Export canvas state to JSON
   const handleExport = () => {
     const canvasState: CanvasState = {
@@ -41,6 +46,8 @@ export default function ExportImportButtons({
     const file = event.target.files?.[0];
     if (!file) return;
 
+    setImportError(null); // Clear previous errors
+
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
@@ -49,7 +56,7 @@ export default function ExportImportButtons({
 
         // Validate structure
         if (!canvasState.tables) {
-          alert("Invalid canvas file format");
+          setImportError("Invalid canvas file format");
           return;
         }
 
@@ -57,7 +64,9 @@ export default function ExportImportButtons({
         onImport(canvasState);
       } catch (error) {
         console.error("Error parsing JSON:", error);
-        alert("Failed to load canvas file. Please check the file format.");
+        setImportError(
+          "Failed to load canvas file. Please check the file format.",
+        );
       }
     };
     reader.readAsText(file);
@@ -67,22 +76,33 @@ export default function ExportImportButtons({
   };
 
   return (
-    <div className="ml-auto flex items-center gap-2">
-      <button
-        onClick={handleExport}
-        className="px-3 py-1.5 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-      >
-        Export JSON
-      </button>
-      <label className="px-3 py-1.5 text-sm bg-green-500 text-white rounded hover:bg-green-600 transition-colors cursor-pointer">
-        Import JSON
-        <input
-          type="file"
-          accept=".json"
-          onChange={handleImport}
-          className="hidden"
-        />
-      </label>
-    </div>
+    <>
+      {importError && (
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-md px-4">
+          <Alert variant="destructive" className="shadow-lg">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{importError}</AlertDescription>
+          </Alert>
+        </div>
+      )}
+
+      <div className="ml-auto flex items-center gap-2">
+        <button
+          onClick={handleExport}
+          className="px-3 py-1.5 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+        >
+          Export JSON
+        </button>
+        <label className="px-3 py-1.5 text-sm bg-green-500 text-white rounded hover:bg-green-600 transition-colors cursor-pointer">
+          Import JSON
+          <input
+            type="file"
+            accept=".json"
+            onChange={handleImport}
+            className="hidden"
+          />
+        </label>
+      </div>
+    </>
   );
 }

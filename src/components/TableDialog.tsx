@@ -24,6 +24,7 @@ interface TableDialogProps {
   onNextState: () => void;
   isLoading?: boolean;
   onUpdateAvailablePositions?: (positions: number[]) => void;
+  onOrderIdChange?: (newOrderId: number) => void;
 }
 
 export default function TableDialog({
@@ -34,6 +35,7 @@ export default function TableDialog({
   onNextState,
   isLoading,
   onUpdateAvailablePositions,
+  onOrderIdChange,
 }: TableDialogProps) {
   const [editingPositions, setEditingPositions] = useState(false);
   const [showTableInfo, setShowTableInfo] = useState(false);
@@ -125,6 +127,7 @@ export default function TableDialog({
               currentState={table.currentState}
               locked={table.locked}
               availablePositions={table.availablePositions}
+              onOrderIdChange={onOrderIdChange}
             />
           )}
 
