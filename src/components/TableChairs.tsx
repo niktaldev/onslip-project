@@ -33,7 +33,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { AlertCircle, CheckCircle2, XCircle } from "lucide-react";
 
 interface ChairDetails {
   id: number;
@@ -111,6 +113,30 @@ export default function TableChairs({
   }>({ isOpen: false, type: null });
   const [combinePayDialogOpen, setCombinePayDialogOpen] = useState(false);
   const [showRestartConfirm, setShowRestartConfirm] = useState(false);
+  const [alertState, setAlertState] = useState<{
+    show: boolean;
+    type: "success" | "error" | "info";
+    title: string;
+    message: string;
+  } | null>(null);
+
+  // Auto-dismiss alerts after 5 seconds
+  useEffect(() => {
+    if (alertState?.show) {
+      const timer = setTimeout(() => {
+        setAlertState(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [alertState]);
+
+  const showAlert = (
+    type: "success" | "error" | "info",
+    title: string,
+    message: string,
+  ) => {
+    setAlertState({ show: true, type, title, message });
+  };
 
   // Use availablePositions if provided, otherwise allow all positions up to maxCapacity
   const allowedPositions = availablePositions
@@ -228,13 +254,21 @@ export default function TableChairs({
 
   const handleChairClick = async (position: number) => {
     if (!orderId) {
-      alert("Table must have an orderId to manage chairs");
+      showAlert(
+        "error",
+        "Error",
+        "Table must have an orderId to manage chairs",
+      );
       return;
     }
 
     // Check if this position is allowed
     if (!allowedPositions.has(position)) {
-      alert("This chair position is not available for this table");
+      showAlert(
+        "error",
+        "Position Unavailable",
+        "This chair position is not available for this table",
+      );
       return;
     }
 
@@ -255,7 +289,11 @@ export default function TableChairs({
         const details = await getChair(existingChair.chairId);
 
         if (!details) {
-          alert("Chair not found. It may have been deleted.");
+          showAlert(
+            "error",
+            "Chair Not Found",
+            "Chair not found. It may have been deleted.",
+          );
           await loadExistingChairs();
           return;
         }
@@ -274,7 +312,9 @@ export default function TableChairs({
       } else {
         // Check if we've reached max capacity before creating new chair
         if (chairs.size >= maxCapacity) {
-          alert(
+          showAlert(
+            "error",
+            "Capacity Reached",
             `Maximum capacity reached (${maxCapacity} chairs). Remove an existing chair to add a new one.`,
           );
           return;
@@ -289,7 +329,11 @@ export default function TableChairs({
       }
     } catch (error) {
       console.error("Failed to handle chair click:", error);
-      alert("Failed to handle chair action. Please try again.");
+      showAlert(
+        "error",
+        "Error",
+        "Failed to handle chair action. Please try again.",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -316,7 +360,7 @@ export default function TableChairs({
       setDialogState({ mode: "view", item: null, product: null });
     } catch (error) {
       console.error("Failed to add product:", error);
-      alert("Failed to add product. Please try again.");
+      showAlert("error", "Error", "Failed to add product. Please try again.");
     } finally {
       setAddingProduct(null);
     }
@@ -343,7 +387,11 @@ export default function TableChairs({
       setDialogState({ mode: "view", item: null, product: null });
     } catch (error) {
       console.error("Failed to add more product:", error);
-      alert("Failed to add more product. Please try again.");
+      showAlert(
+        "error",
+        "Error",
+        "Failed to add more product. Please try again.",
+      );
     } finally {
       setAddingProduct(null);
     }
@@ -375,7 +423,11 @@ export default function TableChairs({
           setItemContext({ item: null, sourceChairId: null, itemIndex: -1 });
         } catch (error) {
           console.error("Failed to delete item:", error);
-          alert("Failed to delete item. Please try again.");
+          showAlert(
+            "error",
+            "Error",
+            "Failed to delete item. Please try again.",
+          );
         }
       },
     });
@@ -440,7 +492,7 @@ export default function TableChairs({
       setSplitDialogState({ item: null, sourceChairId: null, itemIndex: -1 });
     } catch (error) {
       console.error("Failed to split item:", error);
-      alert("Failed to split item. Please try again.");
+      showAlert("error", "Error", "Failed to split item. Please try again.");
     }
   };
 
@@ -453,7 +505,11 @@ export default function TableChairs({
       const result = await combineTabsAndPay(chairIds);
 
       if (!result.success) {
-        alert(`Failed to combine tabs: ${result.error}`);
+        showAlert(
+          "error",
+          "Payment Failed",
+          `Failed to combine tabs: ${result.error}`,
+        );
         return;
       }
 
@@ -464,10 +520,18 @@ export default function TableChairs({
       setSelectedChair(null);
       setCombinePayDialogOpen(false);
 
-      alert("Payment processed successfully!");
+      showAlert(
+        "success",
+        "Payment Successful",
+        "Payment processed successfully!",
+      );
     } catch (error) {
       console.error("Failed to combine tabs:", error);
-      alert("Failed to process payment. Please try again.");
+      showAlert(
+        "error",
+        "Error",
+        "Failed to process payment. Please try again.",
+      );
     }
   };
 
@@ -489,7 +553,11 @@ export default function TableChairs({
       const result = await restartTable(orderId);
 
       if (!result.success) {
-        alert(`Failed to restart table: ${result.error}`);
+        showAlert(
+          "error",
+          "Restart Failed",
+          `Failed to restart table: ${result.error}`,
+        );
         return;
       }
 
@@ -498,17 +566,37 @@ export default function TableChairs({
       setSelectedChair(null);
       setShowRestartConfirm(false);
 
-      alert(
+      showAlert(
+        "success",
+        "Table Restarted",
         `Table restarted successfully! ${result.removedChairs} chairs removed.`,
       );
     } catch (error) {
       console.error("Failed to restart table:", error);
-      alert("Failed to restart table. Please try again.");
+      showAlert("error", "Error", "Failed to restart table. Please try again.");
     }
   };
 
   return (
     <div className="flex flex-col items-center justify-center w-full min-h-[300px] p-8 border border-gray-500 rounded-lg">
+      {/* Alert Display - Fixed at top of screen */}
+      {alertState?.show && (
+        <div className="fixed top-1 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-lg px-4">
+          <Alert
+            variant={alertState.type === "error" ? "destructive" : "default"}
+            className="shadow-lg"
+          >
+            {alertState.type === "success" && (
+              <CheckCircle2 className="h-4 w-4" />
+            )}
+            {alertState.type === "error" && <XCircle className="h-4 w-4" />}
+            {alertState.type === "info" && <AlertCircle className="h-4 w-4" />}
+            <AlertTitle>{alertState.title}</AlertTitle>
+            <AlertDescription>{alertState.message}</AlertDescription>
+          </Alert>
+        </div>
+      )}
+
       {/* Show Restart Table button if all chairs are paid, otherwise show Process Payment */}
       {chairs.size >= 1 && (
         <div className="mb-4 w-full flex justify-center">

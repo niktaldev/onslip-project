@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { listAllProducts, addProductToChair } from "@/lib/products";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 
 interface Product {
   id: number;
@@ -26,6 +28,7 @@ export default function ProductSelector({
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [addingProduct, setAddingProduct] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadProducts();
@@ -34,11 +37,12 @@ export default function ProductSelector({
   const loadProducts = async () => {
     try {
       setIsLoading(true);
+      setError(null);
       const allProducts = await listAllProducts();
       setProducts(allProducts);
     } catch (error) {
       console.error("Failed to load products:", error);
-      alert("Failed to load products. Please try again.");
+      setError("Failed to load products. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -47,6 +51,7 @@ export default function ProductSelector({
   const handleAddProduct = async (productId: number) => {
     try {
       setAddingProduct(productId);
+      setError(null);
       await addProductToChair(chairId, productId);
 
       // Notify parent component to refresh items list
@@ -55,7 +60,7 @@ export default function ProductSelector({
       }
     } catch (error) {
       console.error("Failed to add product:", error);
-      alert("Failed to add product. Please try again.");
+      setError("Failed to add product. Please try again.");
     } finally {
       setAddingProduct(null);
     }
@@ -87,6 +92,16 @@ export default function ProductSelector({
             ×
           </button>
         </div>
+
+        {/* Error Alert - Fixed at top of screen */}
+        {error && (
+          <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-md px-4">
+            <Alert variant="destructive" className="shadow-lg">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          </div>
+        )}
 
         {/* Product List */}
         {isLoading ? (

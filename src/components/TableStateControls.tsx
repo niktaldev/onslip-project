@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Copy,
   Edit,
+  AlertCircle,
 } from "lucide-react";
 import {
   Dialog,
@@ -16,6 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 
 type Props = {
@@ -50,6 +52,7 @@ export default function TableStateControls({
   const [minCapacityInput, setMinCapacityInput] = useState(
     minCapacity.toString(),
   );
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,15 +66,16 @@ export default function TableStateControls({
       isNaN(maxCapacityNum) ||
       isNaN(minCapacityNum)
     ) {
-      alert("All values must be greater than 0");
+      setValidationError("All values must be greater than 0");
       return;
     }
 
     if (minCapacityNum > maxCapacityNum) {
-      alert("Min capacity cannot be greater than max capacity");
+      setValidationError("Min capacity cannot be greater than max capacity");
       return;
     }
 
+    setValidationError(null);
     onCapacityChange(maxCapacityNum, minCapacityNum);
     setDialogOpen(false);
   };
@@ -162,6 +166,14 @@ export default function TableStateControls({
               Set the minimum and maximum capacity for {tableName}
             </DialogDescription>
           </DialogHeader>
+
+          {validationError && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{validationError}</AlertDescription>
+            </Alert>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
