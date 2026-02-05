@@ -162,6 +162,45 @@ export async function getTableChairs(tableId: number) {
   }
 }
 
+export async function deleteChair(chairId: number, tableId: number) {
+  try {
+    console.log(`Starting deletion of chair ${chairId} from table ${tableId}`);
+
+    // First, delete the tab (chair) - this automatically deletes all items
+    await api.removeTab(chairId);
+    console.log(`Successfully deleted tab ${chairId}`);
+
+    // Then remove the chair from the table's resources array
+    const table = await api.getOrder(tableId);
+    if (!table) {
+      // Tab is already deleted, so just log warning
+      console.warn(`Table with ID ${tableId} not found, but tab was deleted`);
+      return { success: true };
+    }
+
+    const updatedResources = (table.resources || []).filter(
+      (resourceId) => resourceId !== chairId,
+    );
+
+    await api.updateOrder(tableId, {
+      resources: updatedResources,
+    });
+    console.log(
+      `Successfully removed chair ${chairId} from table ${tableId} resources`,
+    );
+
+    return {
+      success: true,
+    };
+  } catch (error) {
+    console.error(`Failed to delete chair ${chairId}:`, error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
 export async function restartTable(orderId: number) {
   try {
     // Get all chairs/tabs for this table

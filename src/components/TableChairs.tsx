@@ -6,6 +6,7 @@ import {
   getChair,
   getTableChairs,
   restartTable,
+  deleteChair,
 } from "@/lib/chairs";
 import type { Chair } from "@/types/table";
 import {
@@ -35,7 +36,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, CheckCircle2, XCircle } from "lucide-react";
+import { AlertCircle, CheckCircle2, XCircle, Trash2 } from "lucide-react";
 
 interface ChairDetails {
   id: number;
@@ -113,6 +114,8 @@ export default function TableChairs({
   }>({ isOpen: false, type: null });
   const [combinePayDialogOpen, setCombinePayDialogOpen] = useState(false);
   const [showRestartConfirm, setShowRestartConfirm] = useState(false);
+  const [showDeleteChairConfirm, setShowDeleteChairConfirm] = useState(false);
+  const [chairToDelete, setChairToDelete] = useState<number | null>(null);
   const [alertState, setAlertState] = useState<{
     show: boolean;
     type: "success" | "error" | "info";
@@ -546,6 +549,48 @@ export default function TableChairs({
     });
   };
 
+  const handleDeleteChair = async () => {
+    if (chairToDelete === null || !orderId) return;
+
+    setShowDeleteChairConfirm(false);
+
+    try {
+      const result = await deleteChair(chairToDelete, orderId);
+
+      if (!result.success) {
+        showAlert(
+          "error",
+          "Delete Failed",
+          `Failed to delete chair: ${result.error}`,
+        );
+        return;
+      }
+
+      // Close the chair details panel if it was open
+      const deletedChairPosition = Array.from(chairs.entries()).find(
+        ([, chair]) => chair.chairId === chairToDelete,
+      )?.[0];
+
+      if (selectedChair === deletedChairPosition) {
+        setSelectedChair(null);
+      }
+
+      // Reload the chairs
+      await loadExistingChairs();
+
+      showAlert(
+        "success",
+        "Chair Deleted",
+        "Chair and all its items have been deleted successfully.",
+      );
+    } catch (error) {
+      console.error("Failed to delete chair:", error);
+      showAlert("error", "Error", "Failed to delete chair. Please try again.");
+    } finally {
+      setChairToDelete(null);
+    }
+  };
+
   const handleRestartTable = async () => {
     if (!orderId) return;
 
@@ -702,6 +747,23 @@ export default function TableChairs({
                     currentState={currentState}
                   />
                 )}
+
+                {/* Delete Chair Button */}
+                <div className="pt-4 border-t border-gray-300 mt-4">
+                  <button
+                    onClick={() => {
+                      const chair = chairs.get(selectedChair!);
+                      if (chair) {
+                        setChairToDelete(chair.chairId);
+                        setShowDeleteChairConfirm(true);
+                      }
+                    }}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Delete Chair
+                  </button>
+                </div>
               </div>
             );
           })()}
@@ -809,6 +871,33 @@ export default function TableChairs({
               className="bg-blue-600 hover:bg-blue-700"
             >
               Restart Table
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Chair Confirmation */}
+      <AlertDialog
+        open={showDeleteChairConfirm}
+        onOpenChange={setShowDeleteChairConfirm}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Chair?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this chair and all its items. This
+              action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setChairToDelete(null)}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteChair}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete Chair
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
